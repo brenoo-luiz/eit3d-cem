@@ -57,8 +57,15 @@ def frame(ax) -> None:
 
 
 def legend_above(ax, ncol: int) -> None:
-    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=ncol,
-              handlelength=1.8, columnspacing=1.4, borderpad=0.4, borderaxespad=0)
+    ax.legend(
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.02),
+        ncol=ncol,
+        handlelength=1.8,
+        columnspacing=1.4,
+        borderpad=0.4,
+        borderaxespad=0,
+    )
 
 
 def save(fig, path: Path) -> Path:

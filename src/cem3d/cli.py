@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import argparse
-from typing import Callable, Dict, Optional, Sequence
+from collections.abc import Callable, Sequence
 
 from cem3d.steps import electrodes
 
-STEPS: Dict[str, Callable[..., bool]] = {
+STEPS: dict[str, Callable[..., bool]] = {
     "electrodes": electrodes.run,
 }
 
@@ -17,6 +17,6 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     return 0 if STEPS[args.step](force=args.force) else 1

@@ -25,7 +25,6 @@ def _facet_triangles(data: MeshData, tag: int) -> np.ndarray:
 def _unroll(triangles: np.ndarray, cut: float) -> np.ndarray:
     """Maps lateral triangles to (theta, z), with theta measured from the cut angle."""
     theta = (np.arctan2(triangles[..., 1], triangles[..., 0]) - cut) % TWO_PI
-    # Keeps the three vertices of a triangle on the same side of the cut.
     ref = theta[:, :1]
     theta = np.where(theta - ref > np.pi, theta - TWO_PI, theta)
     theta = np.where(ref - theta > np.pi, theta + TWO_PI, theta)
@@ -50,17 +49,34 @@ def _top_view(ax, layout, radius: float) -> None:
     ax.plot(radius * np.cos(t), radius * np.sin(t), color=FRAME, linewidth=0.8)
     for e in layout:
         arc = np.linspace(e.theta_start, e.theta_end, 30)
-        ax.plot(radius * np.cos(arc), radius * np.sin(arc), color=PALETTE[0], linewidth=3, solid_capstyle="butt")
+        ax.plot(
+            radius * np.cos(arc),
+            radius * np.sin(arc),
+            color=PALETTE[0],
+            linewidth=3,
+            solid_capstyle="butt",
+        )
         c = e.theta_center
-        ax.text(1.2 * radius * np.cos(c), 1.2 * radius * np.sin(c), f"$e_{{{e.index}}}$",
-                ha="center", va="center", fontsize=7)
+        ax.text(
+            1.2 * radius * np.cos(c),
+            1.2 * radius * np.sin(c),
+            f"$e_{{{e.index}}}$",
+            ha="center",
+            va="center",
+            fontsize=7,
+        )
     sense = -1 if layout.config.clockwise else 1
     start = layout[1].theta_center + sense * 0.25
     arc = np.linspace(start, start + sense * 0.9, 30)
-    ax.plot(0.7 * radius * np.cos(arc), 0.7 * radius * np.sin(arc), color=INK, linewidth=0.7)
-    ax.annotate("", xy=(0.7 * radius * np.cos(arc[-1]), 0.7 * radius * np.sin(arc[-1])),
-                xytext=(0.7 * radius * np.cos(arc[-3]), 0.7 * radius * np.sin(arc[-3])),
-                arrowprops=dict(arrowstyle="-|>", color=INK, linewidth=0.7))
+    ax.plot(
+        0.7 * radius * np.cos(arc), 0.7 * radius * np.sin(arc), color=INK, linewidth=0.7
+    )
+    ax.annotate(
+        "",
+        xy=(0.7 * radius * np.cos(arc[-1]), 0.7 * radius * np.sin(arc[-1])),
+        xytext=(0.7 * radius * np.cos(arc[-3]), 0.7 * radius * np.sin(arc[-3])),
+        arrowprops={"arrowstyle": "-|>", "color": INK, "linewidth": 0.7},
+    )
     ax.set_aspect("equal")
     ax.set_xlim(-1.4 * radius, 1.4 * radius)
     ax.set_ylim(-1.4 * radius, 1.4 * radius)
@@ -69,12 +85,25 @@ def _top_view(ax, layout, radius: float) -> None:
 
 def _side_view(ax, data: MeshData, cut: float, height: float) -> None:
     gap = _unroll(_facet_triangles(data, GAP_TAG), cut)
-    ax.add_collection(PolyCollection(gap, facecolor="white", edgecolor=EDGE, linewidth=0.15))
+    ax.add_collection(
+        PolyCollection(gap, facecolor="white", edgecolor=EDGE, linewidth=0.15)
+    )
     for e in data.layout:
         tri = _unroll(_facet_triangles(data, electrode_tag(e.index)), cut)
-        ax.add_collection(PolyCollection(tri, facecolor=ELECTRODE_FILL, edgecolor=PALETTE[0], linewidth=0.15))
+        ax.add_collection(
+            PolyCollection(
+                tri, facecolor=ELECTRODE_FILL, edgecolor=PALETTE[0], linewidth=0.15
+            )
+        )
         x = tri[..., 0].mean()
-        ax.text(x, e.z_max + 0.12, f"$e_{{{e.index}}}$", ha="center", va="bottom", fontsize=7)
+        ax.text(
+            x,
+            e.z_max + 0.12,
+            f"$e_{{{e.index}}}$",
+            ha="center",
+            va="bottom",
+            fontsize=7,
+        )
     ax.set_xlim(0, 360)
     ax.set_ylim(-height / 2, height / 2)
     ax.set_xticks([0, 90, 180, 270, 360])

@@ -15,7 +15,6 @@ ELECTRODE_TAG0 = 100
 
 
 def electrode_tag(index: int) -> int:
-    """Facet tag of electrode e_index (1-based)."""
     return ELECTRODE_TAG0 + index
 
 

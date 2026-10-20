@@ -1,6 +1,12 @@
 import pytest
 
-from cem3d.config import ELECTRODE_TAG0, ElectrodeConfig, MeshConfig, SetupConfig, electrode_tag
+from cem3d.config import (
+    ELECTRODE_TAG0,
+    ElectrodeConfig,
+    MeshConfig,
+    SetupConfig,
+    electrode_tag,
+)
 
 
 def test_default_setup_follows_the_advisor_sheet():
@@ -21,13 +27,17 @@ def test_values_are_stored_as_float():
     assert ElectrodeConfig(rotation=1).rotation == 1.0
 
 
-@pytest.mark.parametrize("kwargs", [dict(count=1), dict(coverage=0.0), dict(coverage=1.0), dict(height=0.0)])
+@pytest.mark.parametrize(
+    "kwargs", [{"count": 1}, {"coverage": 0.0}, {"coverage": 1.0}, {"height": 0.0}]
+)
 def test_invalid_electrode_config(kwargs):
     with pytest.raises(ValueError):
         ElectrodeConfig(**kwargs)
 
 
-@pytest.mark.parametrize("kwargs", [dict(radius=0), dict(height=-1), dict(size_min=0.2, size_max=0.1)])
+@pytest.mark.parametrize(
+    "kwargs", [{"radius": 0}, {"height": -1}, {"size_min": 0.2, "size_max": 0.1}]
+)
 def test_invalid_mesh_config(kwargs):
     with pytest.raises(ValueError):
         MeshConfig(**kwargs)

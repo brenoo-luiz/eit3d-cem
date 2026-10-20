@@ -20,7 +20,9 @@ def test_every_step_is_registered():
 
 def test_electrodes_step_passes_all_checks(mesh_config, tmp_path, capsys):
     pytest.importorskip("dolfinx")
-    ok = electrodes.run(mesh_config, cache_dir=tmp_path / "cache", outputs=tmp_path / "out")
+    ok = electrodes.run(
+        mesh_config, cache_dir=tmp_path / "cache", outputs=tmp_path / "out"
+    )
     assert ok
     assert (tmp_path / "out" / "step1_electrodes.png").exists()
     assert "incorreto" not in capsys.readouterr().out

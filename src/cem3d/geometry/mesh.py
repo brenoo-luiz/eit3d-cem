@@ -5,7 +5,6 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Tuple
 
 import dolfinx
 import dolfinx.io
@@ -16,7 +15,13 @@ from dolfinx.io import gmsh as gmshio
 from mpi4py import MPI
 
 from cem3d.config import (
-    BOTTOM_TAG, CACHE_DIR, GAP_TAG, TOP_TAG, VOLUME_TAG, SetupConfig, electrode_tag,
+    BOTTOM_TAG,
+    CACHE_DIR,
+    GAP_TAG,
+    TOP_TAG,
+    VOLUME_TAG,
+    SetupConfig,
+    electrode_tag,
 )
 from cem3d.geometry.electrodes import ElectrodeLayout
 
@@ -39,8 +44,13 @@ def cache_path(config: SetupConfig, cache_dir: Path = CACHE_DIR) -> Path:
 class CylinderWithElectrodes:
     """Cylinder mesh whose lateral surface is split into tagged electrodes and gap."""
 
-    def __init__(self, config: SetupConfig, comm: MPI.Comm = MPI.COMM_WORLD,
-                 cache_dir: Path = CACHE_DIR, force: bool = False) -> None:
+    def __init__(
+        self,
+        config: SetupConfig,
+        comm: MPI.Comm = MPI.COMM_WORLD,
+        cache_dir: Path = CACHE_DIR,
+        force: bool = False,
+    ) -> None:
         self._config = config
         self._comm = comm
         self._file = cache_path(config, cache_dir)
@@ -59,7 +69,7 @@ class CylinderWithElectrodes:
             self._save(mesh, tags)
         return MeshData(mesh, tags, self.layout)
 
-    def _generate(self) -> Tuple[dolfinx.mesh.Mesh, dolfinx.mesh.MeshTags]:
+    def _generate(self) -> tuple[dolfinx.mesh.Mesh, dolfinx.mesh.MeshTags]:
         if gmsh.isInitialized():
             gmsh.finalize()
         gmsh.initialize()
@@ -81,10 +91,11 @@ class CylinderWithElectrodes:
         body = occ.addCylinder(0, 0, -m.height / 2, 0, 0, m.height, m.radius)
         patches = []
         for e in self.layout:
-            wedge = occ.addCylinder(0, 0, e.z_min, 0, 0, e.height, m.radius, angle=e.width)
+            wedge = occ.addCylinder(
+                0, 0, e.z_min, 0, 0, e.height, m.radius, angle=e.width
+            )
             occ.rotate([(3, wedge)], 0, 0, 0, 0, 0, 1, e.theta_start)
             patches.append((3, wedge))
-        # The wedges imprint the electrode faces on the lateral surface; all pieces form one volume group.
         occ.fragment([(3, body)], patches)
         occ.synchronize()
 
@@ -93,7 +104,9 @@ class CylinderWithElectrodes:
         tol = 1e-6 * m.height
         groups = {TOP_TAG: [], BOTTOM_TAG: [], GAP_TAG: []}
         electrodes = {e.index: [] for e in self.layout}
-        for _, s in gmsh.model.getBoundary(gmsh.model.getEntities(3), oriented=False, combined=True):
+        for _, s in gmsh.model.getBoundary(
+            gmsh.model.getEntities(3), oriented=False, combined=True
+        ):
             x, y, z = gmsh.model.occ.getCenterOfMass(2, s)
             if z > m.height / 2 - tol:
                 groups[TOP_TAG].append(s)
@@ -105,11 +118,14 @@ class CylinderWithElectrodes:
         for tag, surfaces in groups.items():
             gmsh.model.addPhysicalGroup(2, surfaces, tag=tag)
         for index, surfaces in electrodes.items():
-            # An electrode crossing the seam of the cylinder (theta = 0) comes in two pieces.
             if not surfaces:
-                raise RuntimeError(f"electrode {index} not found on the lateral surface")
+                raise RuntimeError(
+                    f"electrode {index} not found on the lateral surface"
+                )
             gmsh.model.addPhysicalGroup(2, surfaces, tag=electrode_tag(index))
-        gmsh.model.addPhysicalGroup(3, [v for _, v in gmsh.model.getEntities(3)], tag=VOLUME_TAG)
+        gmsh.model.addPhysicalGroup(
+            3, [v for _, v in gmsh.model.getEntities(3)], tag=VOLUME_TAG
+        )
 
     def _set_sizes(self) -> None:
         m = self._config.mesh
@@ -129,12 +145,14 @@ class CylinderWithElectrodes:
         gmsh.option.setNumber("Mesh.MeshSizeFromPoints", 0)
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
 
-    def _electrode_edges(self) -> List[int]:
+    def _electrode_edges(self) -> list[int]:
         tags = [electrode_tag(e.index) for e in self.layout]
         edges = set()
         for tag in tags:
             for s in gmsh.model.getEntitiesForPhysicalGroup(2, tag):
-                edges.update(abs(c) for _, c in gmsh.model.getBoundary([(2, s)], oriented=False))
+                edges.update(
+                    abs(c) for _, c in gmsh.model.getBoundary([(2, s)], oriented=False)
+                )
         return sorted(edges)
 
     def _save(self, mesh: dolfinx.mesh.Mesh, tags: dolfinx.mesh.MeshTags) -> None:
@@ -144,7 +162,7 @@ class CylinderWithElectrodes:
             xdmf.write_mesh(mesh)
             xdmf.write_meshtags(tags, mesh.geometry)
 
-    def _load(self) -> Tuple[dolfinx.mesh.Mesh, dolfinx.mesh.MeshTags]:
+    def _load(self) -> tuple[dolfinx.mesh.Mesh, dolfinx.mesh.MeshTags]:
         with dolfinx.io.XDMFFile(self._comm, str(self._file), "r") as xdmf:
             mesh = xdmf.read_mesh(name="mesh")
             mesh.topology.create_connectivity(2, 3)
@@ -167,7 +185,13 @@ def facet_centroid(data: MeshData, tag: int) -> np.ndarray:
     x = ufl.SpatialCoordinate(data.mesh)
     area = facet_area(data, tag)
     comm = data.mesh.comm
-    return np.array([
-        comm.allreduce(dolfinx.fem.assemble_scalar(dolfinx.fem.form(x[i] * ds(tag))), op=MPI.SUM) / area
-        for i in range(3)
-    ])
+    return np.array(
+        [
+            comm.allreduce(
+                dolfinx.fem.assemble_scalar(dolfinx.fem.form(x[i] * ds(tag))),
+                op=MPI.SUM,
+            )
+            / area
+            for i in range(3)
+        ]
+    )

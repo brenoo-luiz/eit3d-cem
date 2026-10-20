@@ -1,13 +1,12 @@
 from __future__ import annotations
 
+import math
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Iterator, Tuple
-
-import numpy as np
 
 from cem3d.config import ElectrodeConfig
 
-TWO_PI = 2 * np.pi
+TWO_PI = math.tau
 
 
 @dataclass(frozen=True)
@@ -35,8 +34,6 @@ class Electrode:
 
 
 class ElectrodeLayout:
-    """Electrodes as rectangles on the lateral surface, numbered e_1..e_L."""
-
     def __init__(self, config: ElectrodeConfig) -> None:
         self._config = config
         self._electrodes = self._build()
@@ -58,7 +55,7 @@ class ElectrodeLayout:
     def sector(self) -> float:
         return TWO_PI / self._config.count
 
-    def _build(self) -> Tuple[Electrode, ...]:
+    def _build(self) -> tuple[Electrode, ...]:
         cfg = self._config
         width = self.sector * cfg.coverage
         half_h = cfg.height / 2

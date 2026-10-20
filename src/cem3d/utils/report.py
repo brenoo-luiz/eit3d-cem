@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 TOL_ZERO = 1e-10
 LABEL = 36
@@ -27,7 +27,9 @@ def info(label: str, value: str) -> None:
     print(f"  {label:<{LABEL}}{value}")
 
 
-def check(label: str, value: float, ok: bool, ideal: str = "0", fmt: str = ".1e") -> bool:
+def check(
+    label: str, value: float, ok: bool, ideal: str = "0", fmt: str = ".1e"
+) -> bool:
     global _columns_pending
     if _columns_pending:
         print(f"  {'':<{LABEL}}{'valor':>10}{'ideal':>9}   situação")

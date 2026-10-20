@@ -13,4 +13,6 @@ def mesh_data(mesh_config, tmp_path_factory):
     pytest.importorskip("dolfinx")
     from cem3d.geometry.mesh import CylinderWithElectrodes
 
-    return CylinderWithElectrodes(mesh_config, cache_dir=tmp_path_factory.mktemp("cache")).get()
+    return CylinderWithElectrodes(
+        mesh_config, cache_dir=tmp_path_factory.mktemp("cache")
+    ).get()
