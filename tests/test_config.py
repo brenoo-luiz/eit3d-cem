@@ -2,7 +2,9 @@ import pytest
 
 from cem3d.config import (
     ELECTRODE_TAG0,
+    CEMConfig,
     ElectrodeConfig,
+    InclusionConfig,
     MeshConfig,
     SetupConfig,
     electrode_tag,
@@ -20,6 +22,10 @@ def test_electrode_tags_are_unique_and_offset():
     tags = [electrode_tag(j) for j in range(1, 17)]
     assert tags[0] == ELECTRODE_TAG0 + 1
     assert len(set(tags)) == 16
+
+
+def test_cem_defaults_follow_the_advisor_sheet():
+    assert CEMConfig().impedance == 1e-3
 
 
 def test_values_are_stored_as_float():
@@ -46,3 +52,15 @@ def test_invalid_mesh_config(kwargs):
 def test_electrodes_must_fit_in_cylinder():
     with pytest.raises(ValueError):
         SetupConfig(mesh=MeshConfig(height=1.0), electrodes=ElectrodeConfig(height=1.0))
+
+
+@pytest.mark.parametrize("kwargs", [{"impedance": 0}, {"degree": 0}, {"rtol": 0}])
+def test_invalid_cem_config(kwargs):
+    with pytest.raises(ValueError):
+        CEMConfig(**kwargs)
+
+
+@pytest.mark.parametrize("kwargs", [{"radius": 0}, {"inside": 0}, {"outside": -1}])
+def test_invalid_inclusion(kwargs):
+    with pytest.raises(ValueError):
+        InclusionConfig(**kwargs)

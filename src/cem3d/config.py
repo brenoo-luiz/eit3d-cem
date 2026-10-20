@@ -62,3 +62,34 @@ class SetupConfig:
     def __post_init__(self) -> None:
         if self.electrodes.height >= self.mesh.height:
             raise ValueError("electrodes must be shorter than the cylinder")
+
+
+@dataclass(frozen=True)
+class CEMConfig:
+    impedance: float = 1e-3
+    degree: int = 1
+    rtol: float = 1e-12
+    max_it: int = 1000
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "impedance", float(self.impedance))
+        if self.impedance <= 0:
+            raise ValueError("impedance must be positive")
+        if self.degree < 1:
+            raise ValueError("degree must be at least 1")
+        if self.rtol <= 0 or self.max_it < 1:
+            raise ValueError("invalid solver tolerance")
+
+
+@dataclass(frozen=True)
+class InclusionConfig:
+    center: tuple[float, float, float] = (-0.3, -0.3, 0.0)
+    radius: float = 0.3
+    inside: float = 2.0
+    outside: float = 1.0
+
+    def __post_init__(self) -> None:
+        if self.radius <= 0:
+            raise ValueError("radius must be positive")
+        if self.inside <= 0 or self.outside <= 0:
+            raise ValueError("conductivity must be positive")
