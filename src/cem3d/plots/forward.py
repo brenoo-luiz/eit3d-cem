@@ -2,85 +2,122 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import dolfinx
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.ticker import MaxNLocator
+from matplotlib.colors import TwoSlopeNorm
 
-from cem3d.plots.paper import COLUMN, FRAME, PALETTE, STYLE, frame, legend_above, save
+from cem3d.config import InclusionConfig
+from cem3d.geometry.electrodes import TWO_PI, ElectrodeLayout
+from cem3d.plots.paper import COLUMN, FRAME, INK, STYLE, save
+from cem3d.utils.sampling import horizontal_slice
+
+CONTOURS = 17
+SATURATION = 0.6
 
 
-def render_voltages(
-    homogeneous: np.ndarray, inclusion: np.ndarray, pattern: int, path: Path
+def _electrodes(ax, layout: ElectrodeLayout, radius: float) -> None:
+    t = np.linspace(0, TWO_PI, 361)
+    ax.plot(radius * np.cos(t), radius * np.sin(t), color=FRAME, linewidth=0.8)
+    for e in layout:
+        arc = np.linspace(e.theta_start, e.theta_end, 30)
+        ax.plot(
+            radius * np.cos(arc),
+            radius * np.sin(arc),
+            color=INK,
+            linewidth=2.6,
+            solid_capstyle="butt",
+        )
+        c = e.theta_center
+        ax.text(
+            1.17 * radius * np.cos(c),
+            1.17 * radius * np.sin(c),
+            f"$e_{{{e.index}}}$",
+            ha="center",
+            va="center",
+            fontsize=6,
+        )
+
+
+def _sphere(ax, inclusion: InclusionConfig) -> None:
+    t = np.linspace(0, TWO_PI, 200)
+    x, y, _ = inclusion.center
+    ax.plot(
+        x + inclusion.radius * np.cos(t),
+        y + inclusion.radius * np.sin(t),
+        color=INK,
+        linewidth=0.7,
+        linestyle=(0, (3, 2)),
+    )
+
+
+def _panel(fig, ax, X, Y, V, cmap, limit, title, label, radius, contours=None):
+    image = ax.pcolormesh(
+        X,
+        Y,
+        V,
+        cmap=cmap,
+        norm=TwoSlopeNorm(0, -limit, limit),
+        shading="auto",
+        rasterized=True,
+    )
+    if contours is not None:
+        ax.contour(X, Y, V, levels=contours, colors="white", linewidths=0.4, alpha=0.8)
+    ax.set_aspect("equal")
+    ax.set_xlim(-1.3 * radius, 1.3 * radius)
+    ax.set_ylim(-1.3 * radius, 1.3 * radius)
+    ax.axis("off")
+    ax.set_title(title)
+    bar = fig.colorbar(
+        image, ax=ax, orientation="horizontal", fraction=0.045, pad=0.02, aspect=30
+    )
+    bar.outline.set_edgecolor(FRAME)
+    bar.ax.tick_params(size=0, labelsize=7)
+    bar.set_label(label, fontsize=8)
+    bar.formatter.set_powerlimits((-2, 2))
+    bar.update_ticks()
+
+
+def render_potential(
+    potential: dolfinx.fem.Function,
+    effect: dolfinx.fem.Function,
+    layout: ElectrodeLayout,
+    inclusion: InclusionConfig,
+    radius: float,
+    path: Path,
+    z: float = 0.0,
 ) -> Path:
-    electrodes = np.arange(1, homogeneous.size + 1)
+    X, Y, (u, du) = horizontal_slice([potential, effect], radius, z)
+    u_lim = SATURATION * np.nanmax(np.abs(u))
+    du_lim = np.nanmax(np.abs(du))
     with plt.rc_context(STYLE):
-        fig, (top, bottom) = plt.subplots(
-            2,
-            1,
-            figsize=(COLUMN, 3.6),
-            sharex=True,
-            gridspec_kw={"height_ratios": [1.4, 1], "hspace": 0.12},
+        fig, (left, right) = plt.subplots(1, 2, figsize=(1.6 * COLUMN, 3.4))
+        _panel(
+            fig,
+            left,
+            X,
+            Y,
+            u,
+            "RdBu_r",
+            u_lim,
+            rf"potencial $u$ em $z = {z:g}$",
+            r"$u$",
+            radius,
+            contours=np.linspace(-u_lim, u_lim, CONTOURS),
         )
-        top.plot(
-            electrodes,
-            homogeneous,
-            color=PALETTE[0],
-            linewidth=2.4,
-            marker="o",
-            markersize=4,
-            label=r"$\gamma \equiv 1$",
+        _panel(
+            fig,
+            right,
+            X,
+            Y,
+            du,
+            "PuOr_r",
+            du_lim,
+            r"efeito da inclusão, $u(\gamma) - u(1)$",
+            r"$\Delta u$",
+            radius,
         )
-        top.plot(
-            electrodes,
-            inclusion,
-            color=PALETTE[1],
-            marker="o",
-            markersize=2.6,
-            label=r"$\gamma$ com inclusão",
-        )
-        top.set_ylabel(rf"$U^{{({pattern})}}_j$")
-        bottom.plot(
-            electrodes,
-            inclusion - homogeneous,
-            color=PALETTE[2],
-            marker="o",
-            markersize=2.6,
-        )
-        bottom.axhline(0, color=FRAME, linewidth=0.8)
-        bottom.set_ylabel(r"$\Delta U_j$")
-        bottom.set_xlabel(r"eletrodo $j$")
-        bottom.xaxis.set_major_locator(MaxNLocator(integer=True))
-        bottom.set_xlim(0.5, electrodes[-1] + 0.5)
-        for ax in (top, bottom):
-            frame(ax)
-        fig.align_ylabels((top, bottom))
-        legend_above(top, ncol=2)
-        return save(fig, path)
-
-
-def render_difference(difference: np.ndarray, path: Path) -> Path:
-    limit = np.abs(difference).max()
-    n_patterns, n_electrodes = difference.shape
-    with plt.rc_context(STYLE):
-        fig, ax = plt.subplots(figsize=(COLUMN, COLUMN))
-        image = ax.imshow(
-            difference,
-            cmap="RdBu_r",
-            vmin=-limit,
-            vmax=limit,
-            extent=(0.5, n_electrodes + 0.5, n_patterns + 0.5, 0.5),
-        )
-        ax.set_xticks(range(1, n_electrodes + 1, 3))
-        ax.set_yticks(range(1, n_patterns + 1, 3))
-        ax.set_xlabel(r"eletrodo $j$")
-        ax.set_ylabel(r"experimento $i$")
-        ax.set_title(r"$U^{(i)}_j(\gamma) - U^{(i)}_j(1)$")
-        ax.grid(False)
-        frame(ax)
-        bar = fig.colorbar(
-            image, ax=ax, orientation="horizontal", fraction=0.05, pad=0.12, aspect=40
-        )
-        bar.outline.set_edgecolor(FRAME)
-        bar.ax.tick_params(size=0)
-        bar.formatter.set_powerlimits((-2, 2))
+        for ax in (left, right):
+            _electrodes(ax, layout, radius)
+            _sphere(ax, inclusion)
         return save(fig, path)

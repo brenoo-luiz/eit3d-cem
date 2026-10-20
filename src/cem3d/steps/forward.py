@@ -16,7 +16,7 @@ from cem3d.forward.cem import CEMForward
 from cem3d.forward.checks import antisymmetry_error, injected_currents
 from cem3d.forward.currents import adjacent_pattern
 from cem3d.geometry.mesh import CylinderWithElectrodes, cache_path
-from cem3d.plots.forward import render_difference, render_voltages
+from cem3d.plots.forward import render_potential
 from cem3d.utils import report
 
 TOL_ZERO = 1e-8
@@ -102,11 +102,18 @@ def run(
     )
     report.info("Maior efeito da inclusão", f"{np.abs(difference).max():.2e}")
 
+    potential = with_inclusion.potential(sol_i.voltages[0])
+    effect = homogeneous.potential(sol_h.voltages[0])
+    effect.x.array[:] = potential.x.array - effect.x.array
     paths = [
-        render_voltages(
-            sol_h.voltages[0], sol_i.voltages[0], 1, outputs / "step2_voltages.png"
-        ),
-        render_difference(difference, outputs / "step2_difference.png"),
+        render_potential(
+            potential,
+            effect,
+            data.layout,
+            inclusion,
+            config.mesh.radius,
+            outputs / "step2_potential.png",
+        )
     ]
     report.result(
         ok,

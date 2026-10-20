@@ -1,8 +1,9 @@
+import dolfinx
 import matplotlib.pyplot as plt
-import numpy as np
 
+from cem3d.config import InclusionConfig
 from cem3d.plots.electrodes import render_layout
-from cem3d.plots.forward import render_difference, render_voltages
+from cem3d.plots.forward import render_potential
 from cem3d.plots.paper import STYLE, frame, save
 
 
@@ -19,11 +20,13 @@ def test_layout_figure(mesh_data, tmp_path):
     assert path.exists() and path.stat().st_size > 0
 
 
-def test_forward_figures(tmp_path):
-    rng = np.random.default_rng(0)
-    u = rng.normal(size=16)
-    paths = [
-        render_voltages(u, u + 1e-3, 1, tmp_path / "voltages.png"),
-        render_difference(rng.normal(size=(16, 16)), tmp_path / "difference.png"),
-    ]
-    assert all(p.exists() and p.stat().st_size > 0 for p in paths)
+def test_potential_figure(mesh_data, tmp_path):
+    V = dolfinx.fem.functionspace(mesh_data.mesh, ("Lagrange", 1))
+    u = dolfinx.fem.Function(V)
+    u.interpolate(lambda x: x[0] - x[1])
+    du = dolfinx.fem.Function(V)
+    du.interpolate(lambda x: 1e-3 * x[0] * x[1])
+    path = render_potential(
+        u, du, mesh_data.layout, InclusionConfig(), 1.0, tmp_path / "potential.png"
+    )
+    assert path.exists() and path.stat().st_size > 0

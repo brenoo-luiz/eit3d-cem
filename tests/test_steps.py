@@ -34,6 +34,5 @@ def test_forward_step_passes_all_checks(mesh_config, tmp_path, capsys):
         mesh_config, cache_dir=tmp_path / "cache", outputs=tmp_path / "out"
     )
     assert ok
-    assert (tmp_path / "out" / "step2_voltages.png").exists()
-    assert (tmp_path / "out" / "step2_difference.png").exists()
+    assert (tmp_path / "out" / "step2_potential.png").exists()
     assert "incorreto" not in capsys.readouterr().out
