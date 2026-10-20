@@ -42,8 +42,6 @@ def cache_path(config: SetupConfig, cache_dir: Path = CACHE_DIR) -> Path:
 
 
 class CylinderWithElectrodes:
-    """Cylinder mesh whose lateral surface is split into tagged electrodes and gap."""
-
     def __init__(
         self,
         config: SetupConfig,

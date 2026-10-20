@@ -72,7 +72,6 @@ class ElectrodeLayout:
         )
 
     def locate(self, theta: float, z: float) -> int:
-        """Index of the electrode containing the point (theta, z), 0 for none."""
         cfg = self._config
         if abs(z) > cfg.height / 2:
             return 0

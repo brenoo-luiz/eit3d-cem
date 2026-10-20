@@ -30,7 +30,6 @@ class _Tee:
 
 @contextmanager
 def saved_to(path: Path) -> Iterator[Path]:
-    # Prints to the terminal and to the file at the same time.
     global _saved_to
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

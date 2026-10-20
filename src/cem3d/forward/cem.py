@@ -26,7 +26,6 @@ class CEMSolution:
     voltages: np.ndarray
 
 
-# Schur complement: u = sum U_j w_j with A w_j = c_j, and S U = I with sum U = 0.
 class CEMForward:
     def __init__(
         self,
@@ -71,7 +70,6 @@ class CEMForward:
         if np.any(np.abs(currents.sum(axis=1)) > 1e-12 * np.abs(currents).max()):
             raise ValueError("each current pattern must sum to zero")
         n = self._count
-        # Constraint sum U = 0 through a Lagrange multiplier, as in the weak form.
         K = np.zeros((n + 1, n + 1))
         K[:n, :n] = self._schur
         K[:n, n] = K[n, :n] = 1.0
