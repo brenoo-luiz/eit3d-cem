@@ -2,12 +2,22 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 
+from cem3d.config import OUTPUTS_DIR
 from cem3d.steps import electrodes, forward
+from cem3d.utils import report
 
-STEPS: dict[str, Callable[..., bool]] = {
-    "electrodes": electrodes.run,
-    "forward": forward.run,
+
+@dataclass(frozen=True)
+class Step:
+    output: str
+    run: Callable[..., bool]
+
+
+STEPS: dict[str, Step] = {
+    "electrodes": Step("step1", electrodes.run),
+    "forward": Step("step2", forward.run),
 }
 
 
@@ -20,4 +30,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    return 0 if STEPS[args.step](force=args.force) else 1
+    step = STEPS[args.step]
+    with report.saved_to(OUTPUTS_DIR / f"{step.output}.txt"):
+        ok = step.run(force=args.force)
+    return 0 if ok else 1

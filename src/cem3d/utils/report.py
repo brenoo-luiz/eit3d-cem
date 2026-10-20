@@ -1,13 +1,48 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+import sys
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
+from typing import TextIO
 
 import numpy as np
 
 LABEL = 36
 
 _columns_pending = False
+_saved_to: Path | None = None
+
+
+class _Tee:
+    def __init__(self, *streams: TextIO) -> None:
+        self._streams = streams
+
+    def write(self, text: str) -> int:
+        for stream in self._streams:
+            stream.write(text)
+        return len(text)
+
+    def flush(self) -> None:
+        for stream in self._streams:
+            stream.flush()
+
+
+@contextmanager
+def saved_to(path: Path) -> Iterator[Path]:
+    # Prints to the terminal and to the file at the same time.
+    global _saved_to
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with (
+        path.open("w", encoding="utf-8") as file,
+        redirect_stdout(_Tee(sys.stdout, file)),
+    ):
+        _saved_to = path
+        try:
+            yield path
+        finally:
+            _saved_to = None
 
 
 def _thousands(n: int) -> str:
@@ -61,5 +96,5 @@ def result(ok: bool, text_ok: str, text_fail: str) -> None:
 
 def files(paths: Iterable[Path]) -> None:
     print("\nArquivos gerados:")
-    for p in paths:
+    for p in [*paths, *([_saved_to] if _saved_to else [])]:
         print(f"  {Path(p)}")

@@ -36,3 +36,18 @@ def test_mesh_line(mesh_data, capsys):
     report.mesh(mesh_data)
     out = capsys.readouterr().out
     assert "elementos" in out and "vértices" in out
+
+
+def test_saved_to_writes_terminal_and_file(tmp_path, capsys):
+    path = tmp_path / "out" / "step.txt"
+    with report.saved_to(path):
+        report.title("TÍTULO")
+        report.files([tmp_path / "fig.png"])
+    out = capsys.readouterr().out
+    assert path.read_text(encoding="utf-8") == out
+    assert "TÍTULO" in out and str(path) in out
+
+
+def test_files_without_saved_report(tmp_path, capsys):
+    report.files([tmp_path / "fig.png"])
+    assert ".txt" not in capsys.readouterr().out

@@ -1,5 +1,6 @@
 import pytest
 
+from cem3d import cli
 from cem3d.cli import STEPS, build_parser
 from cem3d.steps import electrodes, forward
 
@@ -16,6 +17,18 @@ def test_parser_rejects_unknown_step():
 
 def test_every_step_is_registered():
     assert {"electrodes", "forward"} <= set(STEPS)
+
+
+def test_step_outputs_are_unique():
+    outputs = [step.output for step in STEPS.values()]
+    assert len(outputs) == len(set(outputs))
+
+
+def test_main_saves_the_report(monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "OUTPUTS_DIR", tmp_path)
+    monkeypatch.setitem(STEPS, "electrodes", cli.Step("step1", lambda force: True))
+    assert cli.main(["electrodes"]) == 0
+    assert (tmp_path / "step1.txt").exists()
 
 
 def test_electrodes_step_passes_all_checks(mesh_config, tmp_path, capsys):
