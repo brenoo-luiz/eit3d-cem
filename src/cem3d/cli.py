@@ -3,10 +3,11 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable, Sequence
 
-from cem3d.steps import electrodes
+from cem3d.steps import electrodes, forward
 
 STEPS: dict[str, Callable[..., bool]] = {
     "electrodes": electrodes.run,
+    "forward": forward.run,
 }
 
 
