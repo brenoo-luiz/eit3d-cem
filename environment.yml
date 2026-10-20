@@ -1,0 +1,15 @@
+name: eit3d-env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - fenics-dolfinx=0.11
+  - mpich
+  - gmsh
+  - python-gmsh
+  - numpy
+  - scipy
+  - matplotlib
+  - pyvista
+  - pytest
+  - pip
