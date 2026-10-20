@@ -1,3 +1,5 @@
+import numpy as np
+
 from cem3d.utils import report
 
 
@@ -16,6 +18,14 @@ def test_columns_header_is_printed_once_per_section(capsys):
     report.check("x", 1.0, True)
     report.check("y", 1.0, True)
     assert capsys.readouterr().out.count("situação") == 1
+
+
+def test_matrix_prints_labels_and_values(capsys):
+    report.matrix(np.array([[0.5, -0.5], [0.25, -0.25]]), row="I", column="e")
+    lines = capsys.readouterr().out.splitlines()
+    assert "e1" in lines[0] and "e2" in lines[0]
+    assert lines[1].split() == ["I1", "0.5000", "-0.5000"]
+    assert lines[2].split() == ["I2", "0.2500", "-0.2500"]
 
 
 def test_thousands_separator():

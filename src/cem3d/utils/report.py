@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 
+import numpy as np
+
 LABEL = 36
 
 _columns_pending = False
@@ -36,6 +38,15 @@ def check(
     status = "correto" if ok else "incorreto"
     print(f"  {label:<{LABEL}}{value:>10{fmt}}{ideal:>9}   {status}")
     return ok
+
+
+def matrix(values: np.ndarray, row: str, column: str, fmt: str = ".4f") -> None:
+    width = max(len(f"{v:{fmt}}") for v in values.ravel()) + 2
+    head = "".join(f"{f'{column}{j}':>{width}}" for j in range(1, values.shape[1] + 1))
+    print(f"  {'':<6}{head}")
+    for i, line in enumerate(values, start=1):
+        cells = "".join(f"{v:>{width}{fmt}}" for v in line)
+        print(f"  {f'{row}{i}':<6}{cells}")
 
 
 def mesh(data) -> None:

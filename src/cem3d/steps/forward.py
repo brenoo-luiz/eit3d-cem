@@ -13,7 +13,12 @@ from cem3d.config import (
 )
 from cem3d.fields import constant_conductivity, sphere_conductivity
 from cem3d.forward.cem import CEMForward
-from cem3d.forward.checks import antisymmetry_error, injected_currents
+from cem3d.forward.checks import (
+    antisymmetry_error,
+    circulant_error,
+    extremes_off_electrodes,
+    injected_currents,
+)
 from cem3d.forward.currents import adjacent_pattern
 from cem3d.geometry.mesh import CylinderWithElectrodes, cache_path
 from cem3d.plots.forward import render_potential
@@ -68,6 +73,13 @@ def run(
     power = currents @ sol_i.voltages.T
     reciprocity_err = float(np.abs(power - power.T).max() / np.abs(power).max())
     symmetry_err = antisymmetry_error(sol_h.voltages[0])
+    circulant_err = circulant_error(sol_h.voltages)
+    off_electrodes = extremes_off_electrodes(sol_i.voltages, currents)
+
+    report.section(
+        "Tensões U nos eletrodos  (linha i: experimento, coluna j: eletrodo)"
+    )
+    report.matrix(sol_i.voltages, row="I", column="e")
 
     report.section("Verificações")
     ok = all(
@@ -92,6 +104,18 @@ def run(
                 symmetry_err,
                 symmetry_err < TOL_SYMMETRY,
                 ideal="~0",
+            ),
+            report.check(
+                "Circulante com γ ≡ 1 (relativo)",
+                circulant_err,
+                circulant_err < TOL_SYMMETRY,
+                ideal="~0",
+            ),
+            report.check(
+                "Máx. e mín. fora dos eletrodos de I",
+                off_electrodes,
+                off_electrodes == 0,
+                fmt="d",
             ),
         ]
     )
