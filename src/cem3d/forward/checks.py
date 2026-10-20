@@ -12,7 +12,6 @@ from cem3d.geometry.mesh import MeshData, boundary_measure
 def injected_currents(
     forward: CEMForward, data: MeshData, solution: CEMSolution
 ) -> np.ndarray:
-    # Current through e_j: (|e_j| U_j - int u) / z_j.
     u = dolfinx.fem.Function(forward.function_space)
     ds = boundary_measure(data)
     forms = [dolfinx.fem.form(u * ds(electrode_tag(e.index))) for e in data.layout]
@@ -28,7 +27,6 @@ def injected_currents(
 
 
 def antisymmetry_error(voltages: np.ndarray) -> float:
-    # With gamma = 1 and current on (e1, e2): U_k = -U_m when k + m = 3 (mod L).
     n = voltages.size
     mirror = (1 - np.arange(n)) % n
     return float(np.abs(voltages + voltages[mirror]).max() / np.abs(voltages).max())

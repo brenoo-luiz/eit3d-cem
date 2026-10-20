@@ -4,7 +4,6 @@ import numpy as np
 
 
 def adjacent_pattern(count: int, experiments: int | None = None) -> np.ndarray:
-    # Row i: +1 on e_{i+1}, -1 on e_{i+2}, cyclic.
     experiments = count if experiments is None else experiments
     if not 1 <= experiments <= count:
         raise ValueError("experiments must be in [1, count]")

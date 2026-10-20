@@ -143,5 +143,4 @@ class CEMForward:
                 S[k, j] -= loads[k].dot(self._basis[j].x.petsc_vec)
         for c in loads:
             c.destroy()
-        # Symmetric by construction; averaging removes the solver round-off.
         return (S + S.T) / 2

@@ -30,7 +30,6 @@ def solution(forward):
 
 
 def monolithic_voltages(data, gamma, z, currents):
-    # Direct solve of the full system in (u, U, lambda), as in the 2D code.
     V = dolfinx.fem.functionspace(data.mesh, ("Lagrange", 1))
     u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
     ds = boundary_measure(data)
@@ -112,7 +111,6 @@ def test_inclusion_changes_the_data(mesh_data, solution):
 
 
 def test_contact_voltage_drop(mesh_data, forward, solution):
-    # Mean of u on e_1 is U_1 minus the drop z I_1 / |e_1| across the contact.
     u = forward.potential(solution.voltages[0])
     ds = boundary_measure(mesh_data)
     mean = (
