@@ -1,0 +1,14 @@
+# Generated files
+cache/
+outputs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Editors and system
+.vscode/
+.idea/
+.DS_Store
