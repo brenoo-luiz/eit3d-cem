@@ -30,3 +30,16 @@ def antisymmetry_error(voltages: np.ndarray) -> float:
     n = voltages.size
     mirror = (1 - np.arange(n)) % n
     return float(np.abs(voltages + voltages[mirror]).max() / np.abs(voltages).max())
+
+
+def circulant_error(voltages: np.ndarray) -> float:
+    # Rotational symmetry: row i is row 1 shifted by i - 1 electrodes.
+    shifted = np.array([np.roll(voltages[0], i) for i in range(len(voltages))])
+    return float(np.abs(voltages - shifted).max() / np.abs(voltages).max())
+
+
+def extremes_off_electrodes(voltages: np.ndarray, currents: np.ndarray) -> int:
+    # Rows whose highest and lowest U are not at the electrodes injecting +I and -I.
+    highest = voltages.argmax(axis=1) != currents.argmax(axis=1)
+    lowest = voltages.argmin(axis=1) != currents.argmin(axis=1)
+    return int(np.count_nonzero(highest | lowest))

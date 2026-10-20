@@ -9,7 +9,12 @@ import ufl
 from cem3d.config import InclusionConfig, electrode_tag
 from cem3d.fields import constant_conductivity, sphere_conductivity
 from cem3d.forward.cem import CEMForward
-from cem3d.forward.checks import antisymmetry_error, injected_currents
+from cem3d.forward.checks import (
+    antisymmetry_error,
+    circulant_error,
+    extremes_off_electrodes,
+    injected_currents,
+)
 from cem3d.forward.currents import adjacent_pattern
 from cem3d.geometry.mesh import boundary_measure
 
@@ -94,6 +99,32 @@ def test_homogeneous_antisymmetry(mesh_data):
         adjacent_pattern(16, 1)
     )
     assert antisymmetry_error(sol.voltages[0]) < 2e-2
+
+
+def test_homogeneous_matrix_is_circulant(mesh_data):
+    sol = CEMForward(mesh_data, constant_conductivity(mesh_data.mesh, 1.0)).solve(
+        adjacent_pattern(16)
+    )
+    assert circulant_error(sol.voltages) < 2e-2
+
+
+def test_extremes_at_the_injecting_electrodes(solution):
+    assert extremes_off_electrodes(solution.voltages, solution.currents) == 0
+
+
+def test_circulant_error_detects_a_broken_row():
+    row = np.arange(16.0) - 7.5
+    voltages = np.array([np.roll(row, i) for i in range(16)])
+    assert circulant_error(voltages) == 0
+    voltages[3, 5] += 1.0
+    assert circulant_error(voltages) > 0
+
+
+def test_extremes_detects_a_wrong_row():
+    currents = adjacent_pattern(4)
+    voltages = currents.copy()
+    voltages[2] = [0.0, 0.0, -1.0, 1.0]
+    assert extremes_off_electrodes(voltages, currents) == 1
 
 
 def test_inclusion_changes_the_data(mesh_data, solution):
