@@ -18,11 +18,6 @@ def test_columns_header_is_printed_once_per_section(capsys):
     assert capsys.readouterr().out.count("situação") == 1
 
 
-def test_check_zero():
-    assert report.check_zero("x", 1e-12)
-    assert not report.check_zero("x", 1e-3)
-
-
 def test_thousands_separator():
     assert report._thousands(116399) == "116.399"
 

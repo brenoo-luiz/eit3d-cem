@@ -89,10 +89,6 @@ def test_schur_has_constant_null_space(forward):
     assert np.allclose(forward.schur @ np.ones(16), 0, atol=1e-8)
 
 
-def test_measurements_vector(solution):
-    assert solution.measurements.shape == (256,)
-
-
 def test_homogeneous_antisymmetry(mesh_data):
     sol = CEMForward(mesh_data, constant_conductivity(mesh_data.mesh, 1.0)).solve(
         adjacent_pattern(16, 1)

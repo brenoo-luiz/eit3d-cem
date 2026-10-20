@@ -25,10 +25,6 @@ class CEMSolution:
     currents: np.ndarray
     voltages: np.ndarray
 
-    @property
-    def measurements(self) -> np.ndarray:
-        return self.voltages.ravel()
-
 
 # Schur complement: u = sum U_j w_j with A w_j = c_j, and S U = I with sum U = 0.
 class CEMForward:

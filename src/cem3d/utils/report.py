@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Iterable
 from pathlib import Path
 
-TOL_ZERO = 1e-10
 LABEL = 36
 
 _columns_pending = False
@@ -37,10 +36,6 @@ def check(
     status = "correto" if ok else "incorreto"
     print(f"  {label:<{LABEL}}{value:>10{fmt}}{ideal:>9}   {status}")
     return ok
-
-
-def check_zero(label: str, value: float, tol: float = TOL_ZERO) -> bool:
-    return check(label, value, abs(value) < tol)
 
 
 def mesh(data) -> None:
