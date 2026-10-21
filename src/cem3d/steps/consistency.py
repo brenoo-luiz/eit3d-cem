@@ -16,7 +16,7 @@ from cem3d.forward.cem import CEMForward
 from cem3d.forward.consistency import ConsistencyTests
 from cem3d.forward.currents import adjacent_pattern
 from cem3d.geometry.mesh import CylinderWithElectrodes, cache_path
-from cem3d.plots.consistency import render_contact, render_flux, render_matrix
+from cem3d.plots.consistency import render_boundary, render_contact, render_matrix
 from cem3d.utils import report
 
 TOL_ZERO = 1e-8
@@ -106,6 +106,9 @@ def run(
     band = config.mesh.size_min
     points, profile = tests.contact_profile(solution.voltages[0], 1, consistent=True)
     fluxes = [tests.boundary_flux(v, consistent=True) for v in solution.voltages]
+    potentials = [
+        tests.boundary_potential(v, consistent=True) for v in solution.voltages
+    ]
     paths = [
         render_matrix([(solution.voltages, r"$U$")], outputs / "step3_voltages.png"),
         render_matrix(
@@ -115,12 +118,21 @@ def run(
             ],
             outputs / "step3_currents.png",
         ),
-        render_flux(
+        render_boundary(
             tests.boundary_points,
             fluxes,
             tests.on_electrode,
             band,
+            r"$\gamma\,\partial u / \partial \eta$",
             outputs / "step3_flux.png",
+        ),
+        render_boundary(
+            tests.boundary_points,
+            potentials,
+            tests.on_electrode,
+            band,
+            r"$u + z\gamma\,\partial u / \partial \eta$",
+            outputs / "step3_boundary.png",
         ),
         render_contact(
             points,

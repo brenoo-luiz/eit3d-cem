@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from cem3d.config import InclusionConfig
-from cem3d.plots.consistency import render_contact, render_flux, render_matrix
+from cem3d.plots.consistency import render_boundary, render_contact, render_matrix
 from cem3d.plots.electrodes import render_layout
 from cem3d.plots.forward import render_potential
 from cem3d.plots.paper import STYLE, frame, save
@@ -44,8 +44,13 @@ def test_consistency_figures(tmp_path):
             [(rng.normal(size=(16, 16)), "A"), (rng.normal(size=(16, 16)), "B")],
             tmp_path / "matrix.png",
         ),
-        render_flux(
-            points, [rng.normal(size=200)] * 16, electrode, 0.1, tmp_path / "flux.png"
+        render_boundary(
+            points,
+            [rng.normal(size=200)] * 16,
+            electrode,
+            0.1,
+            "flux",
+            tmp_path / "flux.png",
         ),
         render_contact(
             points[:20],

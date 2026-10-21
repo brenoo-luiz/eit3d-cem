@@ -68,21 +68,21 @@ def _band(points: np.ndarray, height: float) -> np.ndarray:
     return (np.abs(radius - radius.max()) < 1e-6) & (np.abs(points[:, 2]) < height)
 
 
-def render_flux(
+def render_boundary(
     points: np.ndarray,
-    fluxes: list[np.ndarray],
+    values: list[np.ndarray],
     on_electrode: np.ndarray,
     band: float,
+    label: str,
     path: Path,
 ) -> Path:
-    # gamma du/dn along the circle z = 0, one panel per experiment.
     mask = _band(points, band)
     theta = np.arctan2(points[mask, 1], points[mask, 0]) % TWO_PI
     order = np.argsort(theta)
     theta, electrode = theta[order], on_electrode[mask][order]
-    limit = 1.1 * max(np.abs(f[mask]).max() for f in fluxes)
+    limit = 1.1 * max(np.abs(v[mask]).max() for v in values)
     columns = 4
-    lines = int(np.ceil(len(fluxes) / columns))
+    lines = int(np.ceil(len(values) / columns))
     with plt.rc_context(STYLE):
         fig, axes = plt.subplots(
             lines,
@@ -90,14 +90,15 @@ def render_flux(
             figsize=(2 * COLUMN, 1.25 * lines + 0.5),
             sharex=True,
             sharey=True,
+            squeeze=False,
             gridspec_kw={"hspace": 0.28, "wspace": 0.06},
         )
-        for i, (ax, flux) in enumerate(zip(axes.ravel(), fluxes, strict=False), 1):
-            values = flux[mask][order]
-            ax.plot(theta, values, color=FRAME, linewidth=0.4, zorder=1)
+        for i, (ax, value) in enumerate(zip(axes.ravel(), values, strict=False), 1):
+            y = value[mask][order]
+            ax.plot(theta, y, color=FRAME, linewidth=0.4, zorder=1)
             ax.plot(
                 theta[~electrode],
-                values[~electrode],
+                y[~electrode],
                 ".",
                 color=GAP,
                 markersize=MARKER,
@@ -105,7 +106,7 @@ def render_flux(
             )
             ax.plot(
                 theta[electrode],
-                values[electrode],
+                y[electrode],
                 ".",
                 color=ELECTRODE,
                 markersize=MARKER,
@@ -117,19 +118,19 @@ def render_flux(
             ax.set_xticks([0, np.pi, TWO_PI], ["0", r"$\pi$", r"$2\pi$"])
             ax.grid(axis="x", visible=False)
             frame(ax)
-        for ax in axes.ravel()[len(fluxes) :]:
+        for ax in axes.ravel()[len(values) :]:
             ax.set_visible(False)
         for ax in axes[-1]:
             ax.set_xlabel(r"$\theta$")
-        fig.supylabel(r"$\gamma\,\partial u / \partial \eta$", x=0.06, fontsize=9)
+        fig.supylabel(label, x=0.06, fontsize=9)
         handles, labels = axes[0, 0].get_legend_handles_labels()
-        axes[0, -1].legend(
+        fig.legend(
             handles,
             labels,
-            loc="lower right",
+            loc="lower center",
             ncol=2,
             markerscale=3,
-            bbox_to_anchor=(1, 1.04),
+            bbox_to_anchor=(0.5, axes[0, 0].get_position().y1 + 0.035),
             borderaxespad=0,
         )
         return save(fig, path)

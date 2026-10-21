@@ -57,6 +57,6 @@ def test_consistency_step_passes_all_checks(mesh_config, tmp_path, capsys):
         mesh_config, cache_dir=tmp_path / "cache", outputs=tmp_path / "out"
     )
     assert ok
-    for name in ("voltages", "currents", "flux", "contact"):
+    for name in ("voltages", "currents", "flux", "boundary", "contact"):
         assert (tmp_path / "out" / f"step3_{name}.png").exists()
     assert "incorreto" not in capsys.readouterr().out
