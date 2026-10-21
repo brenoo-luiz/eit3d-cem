@@ -74,3 +74,12 @@ def test_boundary_potential_is_flat_on_the_electrodes(case):
     _, profile = tests.contact_profile(voltages, 1, True)
     assert np.isin(profile, star).all()
     assert abs(np.median(profile) - voltages[0]) < 2e-2 * np.abs(voltages).max()
+
+
+def test_contact_error_is_alike_on_every_electrode(case):
+    tests, solution = case
+    difference = np.abs(solution.voltages - tests.contact_voltages(solution, True))
+    rows = np.arange(len(difference))
+    difference[rows, rows] = difference[rows, (rows + 1) % len(rows)] = np.nan
+    columns = np.nanmedian(difference, axis=0)
+    assert columns.max() < 5 * np.median(columns)

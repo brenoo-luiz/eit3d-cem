@@ -25,7 +25,7 @@ from cem3d.config import (
 )
 from cem3d.geometry.electrodes import ElectrodeLayout
 
-_SCHEMA = 1
+_SCHEMA = 2
 
 
 @dataclass
@@ -87,6 +87,7 @@ class CylinderWithElectrodes:
         occ = gmsh.model.occ
         m = self._config.mesh
         body = occ.addCylinder(0, 0, -m.height / 2, 0, 0, m.height, m.radius)
+        occ.rotate([(3, body)], 0, 0, 0, 0, 0, 1, self.layout.gap_center)
         patches = []
         for e in self.layout:
             wedge = occ.addCylinder(
@@ -110,6 +111,8 @@ class CylinderWithElectrodes:
                 groups[TOP_TAG].append(s)
             elif z < -m.height / 2 + tol:
                 groups[BOTTOM_TAG].append(s)
+            elif np.hypot(x, y) < m.radius / 2:
+                groups[GAP_TAG].append(s)
             else:
                 index = self.layout.locate(float(np.arctan2(y, x)), z)
                 (electrodes[index] if index else groups[GAP_TAG]).append(s)

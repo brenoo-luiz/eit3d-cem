@@ -34,12 +34,19 @@ def test_boundary_is_fully_tagged(mesh_data):
     assert total == pytest.approx(TWO_PI * 2 + 2 * np.pi, rel=1e-2)
 
 
-def test_electrode_crossing_seam_is_found(mesh_data):
+def test_electrode_crossing_zero_angle_is_found(mesh_data):
     e4 = mesh_data.layout[4]
     assert e4.theta_start % TWO_PI > e4.theta_end % TWO_PI
     assert facet_area(mesh_data, electrode_tag(4)) == pytest.approx(
         e4.area(1.0), rel=1e-2
     )
+
+
+def test_electrode_meshes_are_alike(mesh_data):
+    counts = [
+        mesh_data.facet_tags.find(electrode_tag(e.index)).size for e in mesh_data.layout
+    ]
+    assert max(counts) / min(counts) < 1.1
 
 
 def test_mesh_is_cached(mesh_config, tmp_path):

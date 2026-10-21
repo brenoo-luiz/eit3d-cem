@@ -55,6 +55,11 @@ class ElectrodeLayout:
     def sector(self) -> float:
         return TWO_PI / self._config.count
 
+    @property
+    def gap_center(self) -> float:
+        first = self._electrodes[0]
+        return first.theta_end + (self.sector - first.width) / 2
+
     def _build(self) -> tuple[Electrode, ...]:
         cfg = self._config
         width = self.sector * cfg.coverage

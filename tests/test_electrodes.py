@@ -57,3 +57,15 @@ def test_electrodes_do_not_overlap():
     starts = sorted(e.theta_start % TWO_PI for e in lay)
     gaps = np.diff(starts + [starts[0] + TWO_PI])
     assert np.all(gaps > lay[1].width)
+
+
+@pytest.mark.parametrize("clockwise", [True, False])
+@pytest.mark.parametrize("rotation", [0.0, 1.0, -2.5])
+def test_gap_center_is_off_every_electrode(clockwise, rotation):
+    lay = layout(rotation=rotation, clockwise=clockwise)
+    assert lay.locate(lay.gap_center, 0.0) == 0
+    gap = lay.sector - lay[1].width
+    for e in lay:
+        start = (lay.gap_center - e.theta_start) % TWO_PI
+        end = (e.theta_end - lay.gap_center) % TWO_PI
+        assert min(start - e.width, end) >= gap / 2 - 1e-12
