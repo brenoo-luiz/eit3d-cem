@@ -5,7 +5,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from cem3d.config import OUTPUTS_DIR
-from cem3d.steps import electrodes, forward
+from cem3d.steps import consistency, electrodes, forward
 from cem3d.utils import report
 
 
@@ -18,6 +18,7 @@ class Step:
 STEPS: dict[str, Step] = {
     "electrodes": Step("step1", electrodes.run),
     "forward": Step("step2", forward.run),
+    "consistency": Step("step3", consistency.run),
 }
 
 

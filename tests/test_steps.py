@@ -2,7 +2,7 @@ import pytest
 
 from cem3d import cli
 from cem3d.cli import STEPS, build_parser
-from cem3d.steps import electrodes, forward
+from cem3d.steps import consistency, electrodes, forward
 
 
 def test_parser_accepts_known_steps():
@@ -16,7 +16,7 @@ def test_parser_rejects_unknown_step():
 
 
 def test_every_step_is_registered():
-    assert {"electrodes", "forward"} <= set(STEPS)
+    assert {"electrodes", "forward", "consistency"} <= set(STEPS)
 
 
 def test_step_outputs_are_unique():
@@ -48,4 +48,15 @@ def test_forward_step_passes_all_checks(mesh_config, tmp_path, capsys):
     )
     assert ok
     assert (tmp_path / "out" / "step2_potential.png").exists()
+    assert "incorreto" not in capsys.readouterr().out
+
+
+def test_consistency_step_passes_all_checks(mesh_config, tmp_path, capsys):
+    pytest.importorskip("dolfinx")
+    ok = consistency.run(
+        mesh_config, cache_dir=tmp_path / "cache", outputs=tmp_path / "out"
+    )
+    assert ok
+    for name in ("voltages", "currents", "flux", "contact"):
+        assert (tmp_path / "out" / f"step3_{name}.png").exists()
     assert "incorreto" not in capsys.readouterr().out
