@@ -68,7 +68,7 @@ def run(
     scale = np.abs(solution.voltages).max()
     tol_contact = config.mesh.size_min / 2
 
-    report.section("Teste 2: I - I*  (fluxo pelo gradiente, como no livro)")
+    report.section("Teste 2: I - I*  (fluxo pelo gradiente)")
     report.matrix(current_book, row="I", column="e", fmt=".5f")
     report.section("Teste 4: U - U*  (fluxo pela forma fraca)")
     report.matrix(contact_weak, row="I", column="e", fmt=".1e")
@@ -96,7 +96,7 @@ def run(
             ),
         ]
     )
-    report.section("Mesmos testes com o fluxo pelo gradiente, como no livro")
+    report.section("Mesmos testes com o fluxo pelo gradiente")
     report.info("2. I - I* (maior)", f"{np.abs(current_book).max():.1e}")
     report.info("3. γ ∂u/∂η nos gaps (maior)", f"{gap_book:.1e}")
     report.info(
