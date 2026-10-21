@@ -106,6 +106,7 @@ def run(
     band = config.mesh.size_min
     points, profile = tests.contact_profile(solution.voltages[0], 1, consistent=True)
     fluxes = [tests.boundary_flux(v, consistent=True) for v in solution.voltages]
+    book_fluxes = [tests.boundary_flux(v, consistent=False) for v in solution.voltages]
     potentials = [
         tests.boundary_potential(v, consistent=True) for v in solution.voltages
     ]
@@ -125,6 +126,14 @@ def run(
             band,
             r"$\gamma\,\partial u / \partial \eta$",
             outputs / "step3_flux.png",
+        ),
+        render_boundary(
+            tests.boundary_points,
+            book_fluxes,
+            tests.on_electrode,
+            band,
+            r"$\gamma\,\partial u / \partial \eta$ (gradiente)",
+            outputs / "step3_flux_gradient.png",
         ),
         render_boundary(
             tests.boundary_points,
