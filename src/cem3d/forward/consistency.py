@@ -62,8 +62,10 @@ class ConsistencyTests:
             np.array([local[d] for d in dofs]) for dofs in self._electrode_dofs
         ]
         self._on_electrode = np.zeros(self._boundary.size, dtype=bool)
-        for k in self._electrode_local:
+        self._impedance = np.zeros(self._boundary.size)
+        for k, z in zip(self._electrode_local, forward.impedances, strict=True):
             self._on_electrode[k] = True
+            self._impedance[k] = z
         self._points = V.tabulate_dof_coordinates()[self._boundary]
 
         u2 = dolfinx.fem.Function(dolfinx.fem.functionspace(mesh, ("Lagrange", 2)))
@@ -121,25 +123,19 @@ class ConsistencyTests:
             for v in solution.voltages
         )
 
-    def _contact(self, flux: np.ndarray, index: int) -> np.ndarray:
-        nodes = self._electrode_local[index - 1]
-        return (
-            self._u.x.array[self._electrode_dofs[index - 1]]
-            + self._forward.impedances[index - 1] * flux[nodes]
-        )
+    def boundary_potential(self, voltages: np.ndarray, consistent: bool) -> np.ndarray:
+        flux = self.boundary_flux(voltages, consistent)
+        return self._u.x.array[self._boundary] + self._impedance * flux
 
     def contact_profile(
         self, voltages: np.ndarray, index: int, consistent: bool
     ) -> tuple[np.ndarray, np.ndarray]:
-        flux = self.boundary_flux(voltages, consistent)
-        return self._points[self._electrode_local[index - 1]], self._contact(
-            flux, index
-        )
+        nodes = self._electrode_local[index - 1]
+        return self._points[nodes], self.boundary_potential(voltages, consistent)[nodes]
 
     def contact_voltages(self, solution: CEMSolution, consistent: bool) -> np.ndarray:
-        count = len(self._electrode_dofs)
         result = np.empty_like(solution.voltages)
         for i, voltages in enumerate(solution.voltages):
-            flux = self.boundary_flux(voltages, consistent)
-            result[i] = [self._contact(flux, j).mean() for j in range(1, count + 1)]
+            star = self.boundary_potential(voltages, consistent)
+            result[i] = [star[nodes].mean() for nodes in self._electrode_local]
         return result

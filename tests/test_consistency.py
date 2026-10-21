@@ -57,3 +57,20 @@ def test_contact_profile_lies_on_the_electrode(case, mesh_data):
 def test_electrode_nodes_are_marked(case):
     tests, _ = case
     assert 0 < tests.on_electrode.sum() < tests.on_electrode.size
+
+
+def test_boundary_potential_is_u_on_the_gaps(case):
+    tests, solution = case
+    gaps = ~tests.on_electrode
+    weak = tests.boundary_potential(solution.voltages[0], True)
+    book = tests.boundary_potential(solution.voltages[0], False)
+    assert np.allclose(weak[gaps], book[gaps])
+
+
+def test_boundary_potential_is_flat_on_the_electrodes(case):
+    tests, solution = case
+    voltages = solution.voltages[0]
+    star = tests.boundary_potential(voltages, True)[tests.on_electrode]
+    _, profile = tests.contact_profile(voltages, 1, True)
+    assert np.isin(profile, star).all()
+    assert abs(np.median(profile) - voltages[0]) < 2e-2 * np.abs(voltages).max()
