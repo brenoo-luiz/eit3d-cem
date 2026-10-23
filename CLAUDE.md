@@ -2,6 +2,8 @@
 
 Guidance for Claude Code in this repository. Talk to the user in Portuguese; code, comments and commit messages are in English.
 
+The user's personal standards in `~/.claude/CLAUDE.md` also apply. Topic guides live in `~/.claude/padroes/` (style, OOP, design patterns, project structure, data structures and algorithms, AI, testing, UML, git, figures, references): read the relevant one before a task on that topic. This file takes precedence on conflicts.
+
 ## Project
 
 3D Electrical Impedance Tomography (EIT) with the Complete Electrode Model (CEM), an undergraduate research project (IC, UFSC) supervised by Prof. Fábio Margotti. It is the 3D version of the 2D code in HafemannE/FEIT_CBM34, and the consistency tests follow section 3.2.1 of the supervisor's book. Stack: gmsh (OCC) for the mesh, FEniCSx (dolfinx 0.11 + PETSc) for the solver.
@@ -63,7 +65,7 @@ Pipeline: `config` → `geometry` (layout + mesh) → `fields` (γ) → `forward
 ## Workflow
 
 - Never run `git commit` or `git push`. The user reviews the diff and commits from his own terminal.
-- One logical change per commit. When a change is done, suggest the commit message: Conventional Commits without a scope (`feat: ...`, never `feat(step3): ...`), short and in English.
+- One logical change per commit. When a change is done, suggest the commit message: Conventional Commits without a scope (`feat: ...`, never `feat(step7): ...`), short and in English.
 - Before suggesting a commit, run `ruff check src tests`, `ruff format src tests` and `pytest -q`, and report the result.
 - Always edit whole files consistently; do not leave partial changes for the user to finish.
 - When something differs from what the supervisor asked or from the book, say so explicitly instead of silently choosing.
