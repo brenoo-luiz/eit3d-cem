@@ -60,7 +60,8 @@ def _describe(config: SetupConfig, layout: ElectrodeLayout) -> None:
 
 
 def _first_start(row: ElectrodeRow, angle: float) -> float:
-    return float(np.degrees((row.sense * angle - row.width / 2) % TWO_PI))
+    degrees = np.degrees((row.sense * angle - row.width / 2) % TWO_PI)
+    return float(round(degrees, 6) % 360)
 
 
 def run(

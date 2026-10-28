@@ -5,8 +5,10 @@ import pytest
 
 from cem3d import cli
 from cem3d.cli import STEPS, build_parser, load_setup
-from cem3d.config import ROOT_DIR, SetupConfig
+from cem3d.config import ROOT_DIR, RowConfig, SetupConfig
+from cem3d.geometry.electrodes import ElectrodeLayout
 from cem3d.steps import consistency, electrodes, forward
+from cem3d.steps.electrodes import _first_start
 
 CONFIGS = sorted((ROOT_DIR / "configs").glob("*.toml"))
 
@@ -74,6 +76,18 @@ def test_setup_file_sets_every_row(tmp_path):
     first, second = e.rows
     assert (first.count, first.theta, first.clockwise) == (8, 30.0, False)
     assert (second.count, second.clockwise) == (12, True)
+
+
+def test_first_start_at_zero_reads_zero_not_360():
+    config = dataclasses.replace(
+        SetupConfig(),
+        electrodes=dataclasses.replace(
+            SetupConfig().electrodes, rows=(RowConfig(theta=0.0),)
+        ),
+    )
+    row = ElectrodeLayout(config).rows[0]
+    centroid = next(iter(row)).theta_center + 1e-9
+    assert _first_start(row, centroid) == 0.0
 
 
 @pytest.mark.parametrize("path", CONFIGS, ids=lambda p: Path(p).stem)
