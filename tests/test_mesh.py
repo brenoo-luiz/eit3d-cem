@@ -1,7 +1,16 @@
 import numpy as np
 import pytest
 
-from cem3d.config import BOTTOM_TAG, GAP_TAG, TOP_TAG, electrode_tag
+from cem3d.config import (
+    BOTTOM_TAG,
+    GAP_TAG,
+    TOP_TAG,
+    ElectrodeConfig,
+    MeshConfig,
+    RowConfig,
+    SetupConfig,
+    electrode_tag,
+)
 from cem3d.geometry.electrodes import TWO_PI
 from cem3d.geometry.mesh import CylinderWithElectrodes, facet_area, facet_centroid
 
@@ -23,7 +32,7 @@ def test_electrode_positions(mesh_data):
         c = facet_centroid(mesh_data, electrode_tag(e.index))
         diff = (np.arctan2(c[1], c[0]) - e.theta_center + np.pi) % TWO_PI - np.pi
         assert abs(diff) < 1e-2
-        assert abs(c[2]) < 1e-6
+        assert abs(c[2] - e.z_center) < 1e-6
 
 
 def test_boundary_is_fully_tagged(mesh_data):
@@ -35,10 +44,11 @@ def test_boundary_is_fully_tagged(mesh_data):
 
 
 def test_electrode_crossing_zero_angle_is_found(mesh_data):
-    e4 = mesh_data.layout[4]
-    assert e4.theta_start % TWO_PI > e4.theta_end % TWO_PI
-    assert facet_area(mesh_data, electrode_tag(4)) == pytest.approx(
-        e4.area(1.0), rel=1e-2
+    (crossing,) = [
+        e for e in mesh_data.layout if e.theta_start % TWO_PI > e.theta_end % TWO_PI
+    ]
+    assert facet_area(mesh_data, electrode_tag(crossing.index)) == pytest.approx(
+        crossing.area(1.0), rel=1e-2
     )
 
 
@@ -57,3 +67,37 @@ def test_mesh_is_cached(mesh_config, tmp_path):
     assert facet_area(again, electrode_tag(1)) == pytest.approx(
         again.layout[1].area(1.0), rel=1e-2
     )
+
+
+@pytest.fixture(scope="module")
+def staggered(tmp_path_factory):
+    rows = (RowConfig(theta=0.0), RowConfig(theta=11.25))
+    config = SetupConfig(
+        mesh=MeshConfig(), electrodes=ElectrodeConfig(aspect=2.0, rows=rows)
+    )
+    return CylinderWithElectrodes(
+        config, cache_dir=tmp_path_factory.mktemp("cache")
+    ).get()
+
+
+def test_staggered_rows_are_tagged_with_exact_areas(staggered):
+    assert staggered.layout.clearance(staggered.layout.seam) == 0.0
+    for e in staggered.layout:
+        assert facet_area(staggered, electrode_tag(e.index)) == pytest.approx(
+            e.area(1.0), rel=1e-3
+        )
+
+
+def test_staggered_rows_are_in_place(staggered):
+    for e in staggered.layout:
+        c = facet_centroid(staggered, electrode_tag(e.index))
+        diff = (np.arctan2(c[1], c[0]) - e.theta_center + np.pi) % TWO_PI - np.pi
+        assert abs(diff) < 1e-2
+        assert abs(c[2] - e.z_center) < 1e-6
+
+
+def test_electrode_cut_by_the_seam_is_meshed_like_the_others(staggered):
+    counts = [
+        staggered.facet_tags.find(electrode_tag(e.index)).size for e in staggered.layout
+    ]
+    assert max(counts) / min(counts) < 1.1

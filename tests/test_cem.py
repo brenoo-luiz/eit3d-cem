@@ -6,7 +6,14 @@ import scipy.sparse as sp
 import scipy.sparse.linalg as spla
 import ufl
 
-from cem3d.config import InclusionConfig, electrode_tag
+from cem3d.config import (
+    ElectrodeConfig,
+    InclusionConfig,
+    MeshConfig,
+    RowConfig,
+    SetupConfig,
+    electrode_tag,
+)
 from cem3d.fields import constant_conductivity, sphere_conductivity
 from cem3d.forward.cem import CEMForward
 from cem3d.forward.checks import (
@@ -15,8 +22,8 @@ from cem3d.forward.checks import (
     extremes_off_electrodes,
     injected_currents,
 )
-from cem3d.forward.currents import adjacent_pattern
-from cem3d.geometry.mesh import boundary_measure
+from cem3d.forward.currents import adjacent_by_row, adjacent_pattern
+from cem3d.geometry.mesh import CylinderWithElectrodes, boundary_measure
 
 
 @pytest.fixture(scope="module")
@@ -106,6 +113,22 @@ def test_homogeneous_matrix_is_circulant(mesh_data):
         adjacent_pattern(16)
     )
     assert circulant_error(sol.voltages) < 2e-2
+
+
+def test_staggered_rows_keep_the_mirror_symmetry(tmp_path):
+    rows = (RowConfig(theta=0.0), RowConfig(theta=11.25))
+    config = SetupConfig(
+        mesh=MeshConfig(size_max=0.25, size_min=0.08),
+        electrodes=ElectrodeConfig(aspect=2.0, rows=rows),
+    )
+    data = CylinderWithElectrodes(config, cache_dir=tmp_path).get()
+    homogeneous = CEMForward(data, constant_conductivity(data.mesh, 1.0))
+    voltages = homogeneous.solve(adjacent_by_row([16, 16])).voltages
+    n = 16
+    image = np.r_[n + np.arange(n), (np.arange(n) + 1) % n]
+    mapped = np.empty_like(voltages)
+    mapped[np.ix_(image, image)] = voltages
+    assert np.abs(mapped - voltages).max() < 3e-2 * np.abs(voltages).max()
 
 
 def test_extremes_at_the_injecting_electrodes(solution):

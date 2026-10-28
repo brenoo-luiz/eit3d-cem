@@ -4,7 +4,7 @@ import math
 from collections.abc import Iterator
 from dataclasses import dataclass
 
-from cem3d.config import ElectrodeConfig
+from cem3d.config import RowConfig, SetupConfig
 
 TWO_PI = math.tau
 
@@ -29,18 +29,106 @@ class Electrode:
     def height(self) -> float:
         return self.z_max - self.z_min
 
+    @property
+    def z_center(self) -> float:
+        return (self.z_min + self.z_max) / 2
+
     def area(self, radius: float) -> float:
         return radius * self.width * self.height
 
 
-class ElectrodeLayout:
-    def __init__(self, config: ElectrodeConfig) -> None:
+class ElectrodeRow:
+    def __init__(
+        self, config: RowConfig, number: int, first: int, z_min: float, z_max: float
+    ) -> None:
         self._config = config
-        self._electrodes = self._build()
+        self._number = number
+        self._first = first
+        self._theta = math.radians(config.theta)
+        self.z_min = z_min
+        self.z_max = z_max
+        self._electrodes = tuple(self._electrode(j) for j in range(config.count))
 
     @property
-    def config(self) -> ElectrodeConfig:
+    def config(self) -> RowConfig:
         return self._config
+
+    @property
+    def number(self) -> int:
+        return self._number
+
+    @property
+    def sector(self) -> float:
+        return TWO_PI / self._config.count
+
+    @property
+    def width(self) -> float:
+        return self.sector * self._config.coverage
+
+    @property
+    def sense(self) -> int:
+        return -1 if self._config.clockwise else 1
+
+    @property
+    def z_center(self) -> float:
+        return (self.z_min + self.z_max) / 2
+
+    def __len__(self) -> int:
+        return len(self._electrodes)
+
+    def __iter__(self) -> Iterator[Electrode]:
+        return iter(self._electrodes)
+
+    def _electrode(self, j: int) -> Electrode:
+        lead = self.sense * (self._theta + j * self.sector)
+        trail = lead + self.sense * self.width
+        return Electrode(
+            index=self._first + j,
+            theta_start=min(lead, trail),
+            theta_end=max(lead, trail),
+            z_min=self.z_min,
+            z_max=self.z_max,
+        )
+
+    def _travelled(self, theta: float) -> float:
+        """Angle covered in the row sense from the first leading edge to theta."""
+        return (self.sense * theta - self._theta) % TWO_PI % TWO_PI
+
+    def contains(self, z: float) -> bool:
+        return self.z_min <= z <= self.z_max
+
+    def locate(self, theta: float) -> int:
+        travelled = self._travelled(theta)
+        slot = int(travelled // self.sector)
+        if travelled - slot * self.sector > self.width:
+            return 0
+        return self._first + slot
+
+    def clearance(self, theta: float) -> float:
+        offset = self._travelled(theta) % self.sector
+        if offset <= self.width:
+            return 0.0
+        return min(offset - self.width, self.sector - offset)
+
+    def gap_centers(self) -> list[float]:
+        middle = self._theta + (self.width + self.sector) / 2
+        return [self.sense * (middle + j * self.sector) for j in range(len(self))]
+
+
+class ElectrodeLayout:
+    def __init__(self, config: SetupConfig) -> None:
+        heights = config.electrodes.heights(config.mesh.radius)
+        self._vertical_gap = (config.mesh.height - sum(heights)) / (len(heights) + 1)
+        self._rows = self._build(config, heights)
+        self._electrodes = tuple(e for row in self._rows for e in row)
+
+    @property
+    def rows(self) -> tuple[ElectrodeRow, ...]:
+        return self._rows
+
+    @property
+    def vertical_gap(self) -> float:
+        return self._vertical_gap
 
     def __len__(self) -> int:
         return len(self._electrodes)
@@ -51,37 +139,30 @@ class ElectrodeLayout:
     def __getitem__(self, index: int) -> Electrode:
         return self._electrodes[index - 1]
 
-    @property
-    def sector(self) -> float:
-        return TWO_PI / self._config.count
-
-    @property
-    def gap_center(self) -> float:
-        first = self._electrodes[0]
-        return first.theta_end + (self.sector - first.width) / 2
-
-    def _build(self) -> tuple[Electrode, ...]:
-        cfg = self._config
-        width = self.sector * cfg.coverage
-        half_h = cfg.height / 2
-        step = -self.sector if cfg.clockwise else self.sector
-        return tuple(
-            Electrode(
-                index=j + 1,
-                theta_start=cfg.rotation + j * step,
-                theta_end=cfg.rotation + j * step + width,
-                z_min=-half_h,
-                z_max=half_h,
-            )
-            for j in range(cfg.count)
-        )
+    def _build(
+        self, config: SetupConfig, heights: tuple[float, ...]
+    ) -> tuple[ElectrodeRow, ...]:
+        rows = []
+        top = config.mesh.height / 2 - self._vertical_gap
+        first = 1
+        for number, (row, height) in enumerate(
+            zip(config.electrodes.rows, heights, strict=True), start=1
+        ):
+            rows.append(ElectrodeRow(row, number, first, top - height, top))
+            first += row.count
+            top -= height + self._vertical_gap
+        return tuple(rows)
 
     def locate(self, theta: float, z: float) -> int:
-        cfg = self._config
-        if abs(z) > cfg.height / 2:
-            return 0
-        offset = (theta - cfg.rotation) % TWO_PI
-        slot = int(offset // self.sector)
-        if offset - slot * self.sector > self.sector * cfg.coverage:
-            return 0
-        return 1 + (-slot % cfg.count if cfg.clockwise else slot)
+        for row in self._rows:
+            if row.contains(z):
+                return row.locate(theta)
+        return 0
+
+    def clearance(self, theta: float) -> float:
+        return min(row.clearance(theta) for row in self._rows)
+
+    @property
+    def seam(self) -> float:
+        candidates = [theta for row in self._rows for theta in row.gap_centers()]
+        return max(candidates, key=self.clearance)

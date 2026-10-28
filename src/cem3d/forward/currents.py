@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import numpy as np
+from scipy.linalg import block_diag
 
 
 def adjacent_pattern(count: int, experiments: int | None = None) -> np.ndarray:
@@ -12,3 +15,8 @@ def adjacent_pattern(count: int, experiments: int | None = None) -> np.ndarray:
     currents[rows, rows] = 1.0
     currents[rows, (rows + 1) % count] = -1.0
     return currents
+
+
+def adjacent_by_row(counts: Sequence[int]) -> np.ndarray:
+    """Adjacent patterns cycling inside each row of electrodes, row after row."""
+    return block_diag(*(adjacent_pattern(count) for count in counts))

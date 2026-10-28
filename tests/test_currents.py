@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from cem3d.forward.currents import adjacent_pattern
+from cem3d.forward.currents import adjacent_by_row, adjacent_pattern
 
 
 def test_first_pattern_matches_the_advisor_example():
@@ -22,3 +22,18 @@ def test_every_pattern_sums_to_zero():
 def test_invalid_number_of_experiments(experiments):
     with pytest.raises(ValueError):
         adjacent_pattern(16, experiments)
+
+
+def test_one_row_gives_the_adjacent_pattern():
+    assert np.array_equal(adjacent_by_row([16]), adjacent_pattern(16))
+
+
+def test_patterns_cycle_inside_each_row():
+    currents = adjacent_by_row([3, 2])
+    assert currents.tolist() == [
+        [1, -1, 0, 0, 0],
+        [0, 1, -1, 0, 0],
+        [-1, 0, 1, 0, 0],
+        [0, 0, 0, 1, -1],
+        [0, 0, 0, -1, 1],
+    ]

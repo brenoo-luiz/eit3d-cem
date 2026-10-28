@@ -16,10 +16,12 @@ CONTOURS = 17
 SATURATION = 0.6
 
 
-def _electrodes(ax, layout: ElectrodeLayout, radius: float) -> None:
+def _electrodes(ax, layout: ElectrodeLayout, radius: float, z: float) -> None:
     t = np.linspace(0, TWO_PI, 361)
     ax.plot(radius * np.cos(t), radius * np.sin(t), color=FRAME, linewidth=0.8)
     for e in layout:
+        if not e.z_min <= z <= e.z_max:
+            continue
         arc = np.linspace(e.theta_start, e.theta_end, 30)
         ax.plot(
             radius * np.cos(arc),
@@ -39,12 +41,15 @@ def _electrodes(ax, layout: ElectrodeLayout, radius: float) -> None:
         )
 
 
-def _sphere(ax, inclusion: InclusionConfig) -> None:
+def _sphere(ax, inclusion: InclusionConfig, z: float) -> None:
+    x, y, zc = inclusion.center
+    if abs(z - zc) >= inclusion.radius:
+        return
+    section = np.sqrt(inclusion.radius**2 - (z - zc) ** 2)
     t = np.linspace(0, TWO_PI, 200)
-    x, y, _ = inclusion.center
     ax.plot(
-        x + inclusion.radius * np.cos(t),
-        y + inclusion.radius * np.sin(t),
+        x + section * np.cos(t),
+        y + section * np.sin(t),
         color=INK,
         linewidth=0.7,
         linestyle=(0, (3, 2)),
@@ -118,6 +123,6 @@ def render_potential(
             radius,
         )
         for ax in (left, right):
-            _electrodes(ax, layout, radius)
-            _sphere(ax, inclusion)
+            _electrodes(ax, layout, radius, z)
+            _sphere(ax, inclusion, z)
         return save(fig, path)

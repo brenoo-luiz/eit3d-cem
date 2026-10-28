@@ -25,7 +25,7 @@ from cem3d.config import (
 )
 from cem3d.geometry.electrodes import ElectrodeLayout
 
-_SCHEMA = 2
+_SCHEMA = 3
 
 
 @dataclass
@@ -53,7 +53,7 @@ class CylinderWithElectrodes:
         self._comm = comm
         self._file = cache_path(config, cache_dir)
         self._force = force
-        self.layout = ElectrodeLayout(config.electrodes)
+        self.layout = ElectrodeLayout(config)
 
     @property
     def file(self) -> Path:
@@ -87,7 +87,7 @@ class CylinderWithElectrodes:
         occ = gmsh.model.occ
         m = self._config.mesh
         body = occ.addCylinder(0, 0, -m.height / 2, 0, 0, m.height, m.radius)
-        occ.rotate([(3, body)], 0, 0, 0, 0, 0, 1, self.layout.gap_center)
+        occ.rotate([(3, body)], 0, 0, 0, 0, 0, 1, self.layout.seam)
         patches = []
         for e in self.layout:
             wedge = occ.addCylinder(
@@ -147,13 +147,15 @@ class CylinderWithElectrodes:
         gmsh.option.setNumber("Mesh.MeshSizeFromCurvature", 0)
 
     def _electrode_edges(self) -> list[int]:
-        tags = [electrode_tag(e.index) for e in self.layout]
         edges = set()
-        for tag in tags:
-            for s in gmsh.model.getEntitiesForPhysicalGroup(2, tag):
-                edges.update(
-                    abs(c) for _, c in gmsh.model.getBoundary([(2, s)], oriented=False)
+        for e in self.layout:
+            surfaces = gmsh.model.getEntitiesForPhysicalGroup(2, electrode_tag(e.index))
+            edges.update(
+                abs(c)
+                for _, c in gmsh.model.getBoundary(
+                    [(2, s) for s in surfaces], oriented=False, combined=True
                 )
+            )
         return sorted(edges)
 
     def _save(self, mesh: dolfinx.mesh.Mesh, tags: dolfinx.mesh.MeshTags) -> None:

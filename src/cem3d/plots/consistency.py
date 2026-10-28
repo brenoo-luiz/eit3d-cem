@@ -63,9 +63,10 @@ def render_matrix(panels: list[tuple[np.ndarray, str]], path: Path) -> Path:
         return save(fig, path)
 
 
-def _band(points: np.ndarray, height: float) -> np.ndarray:
+def _band(points: np.ndarray, height: float, z: float) -> np.ndarray:
     radius = np.hypot(points[:, 0], points[:, 1])
-    return (np.abs(radius - radius.max()) < 1e-6) & (np.abs(points[:, 2]) < height)
+    lateral = np.abs(radius - radius.max()) < 1e-6
+    return lateral & (np.abs(points[:, 2] - z) < height)
 
 
 def render_boundary(
@@ -75,8 +76,9 @@ def render_boundary(
     band: float,
     label: str,
     path: Path,
+    z: float = 0.0,
 ) -> Path:
-    mask = _band(points, band)
+    mask = _band(points, band, z)
     theta = np.arctan2(points[mask, 1], points[mask, 0]) % TWO_PI
     order = np.argsort(theta)
     theta, electrode = theta[order], on_electrode[mask][order]
@@ -143,8 +145,9 @@ def render_contact(
     difference: np.ndarray,
     band: float,
     path: Path,
+    z: float = 0.0,
 ) -> Path:
-    mask = np.abs(points[:, 2]) < band
+    mask = np.abs(points[:, 2] - z) < band
     theta = np.arctan2(points[mask, 1], points[mask, 0])
     order = np.argsort(theta)
     with plt.rc_context(STYLE):

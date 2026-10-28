@@ -14,7 +14,7 @@ from cem3d.config import (
 from cem3d.fields import sphere_conductivity
 from cem3d.forward.cem import CEMForward
 from cem3d.forward.consistency import ConsistencyTests
-from cem3d.forward.currents import adjacent_pattern
+from cem3d.forward.currents import adjacent_by_row
 from cem3d.geometry.mesh import CylinderWithElectrodes, cache_path
 from cem3d.plots.consistency import render_boundary, render_contact, render_matrix
 from cem3d.utils import report
@@ -37,7 +37,7 @@ def run(
 
     report.title("TESTES DE CONSISTÊNCIA  (seção 3.2.1 do livro)")
     report.info("Impedância de contato", f"z = {cem.impedance:g} em todos os eletrodos")
-    report.info("Correntes", f"adjacentes, {count} experimentos")
+    report.info("Correntes", f"adjacentes em cada linha, {count} experimentos")
     x, y, z = inclusion.center
     report.info(
         "Condutividade",
@@ -54,7 +54,7 @@ def run(
 
     gamma = sphere_conductivity(data.mesh, inclusion)
     forward = CEMForward(data, gamma, cem)
-    currents = adjacent_pattern(count)
+    currents = adjacent_by_row([row.count for row in config.electrodes.rows])
     solution = forward.solve(currents)
     tests = ConsistencyTests(forward, data, gamma)
 
@@ -104,6 +104,7 @@ def run(
     )
 
     band = config.mesh.size_min
+    level = data.layout.rows[0].z_center
     points, profile = tests.contact_profile(solution.voltages[0], 1, consistent=True)
     fluxes = [tests.boundary_flux(v, consistent=True) for v in solution.voltages]
     book_fluxes = [tests.boundary_flux(v, consistent=False) for v in solution.voltages]
@@ -126,6 +127,7 @@ def run(
             band,
             r"$\gamma\,\partial u / \partial \eta$",
             outputs / "step3_flux.png",
+            z=level,
         ),
         render_boundary(
             tests.boundary_points,
@@ -134,6 +136,7 @@ def run(
             band,
             r"$\gamma\,\partial u / \partial \eta$ (gradiente)",
             outputs / "step3_flux_gradient.png",
+            z=level,
         ),
         render_boundary(
             tests.boundary_points,
@@ -142,6 +145,7 @@ def run(
             band,
             r"$u + z\gamma\,\partial u / \partial \eta$",
             outputs / "step3_boundary.png",
+            z=level,
         ),
         render_contact(
             points,
@@ -150,6 +154,7 @@ def run(
             contact_weak,
             band,
             outputs / "step3_contact.png",
+            z=level,
         ),
     ]
     report.result(
