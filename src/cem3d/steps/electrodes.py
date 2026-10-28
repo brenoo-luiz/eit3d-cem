@@ -25,6 +25,7 @@ from cem3d.utils import report
 
 TOL_AREA = 1e-3
 TOL_ANGLE = 1e-3
+ANGLE_DECIMALS = 2
 
 
 def _angle_gap(a: float, b: float) -> float:
@@ -60,8 +61,9 @@ def _describe(config: SetupConfig, layout: ElectrodeLayout) -> None:
 
 
 def _first_start(row: ElectrodeRow, angle: float) -> float:
+    # Round to the printed precision before wrapping, so 359.999° reads as 0°.
     degrees = np.degrees((row.sense * angle - row.width / 2) % TWO_PI)
-    return float(round(degrees, 6) % 360)
+    return float(round(degrees, ANGLE_DECIMALS) % 360)
 
 
 def run(
@@ -153,8 +155,8 @@ def run(
                 f"Linha {row.number}: início do 1º eletrodo (°)",
                 first,
                 _angle_gap(np.radians(first), np.radians(theta)) < TOL_ANGLE,
-                ideal=f"{theta:.2f}",
-                fmt=".2f",
+                ideal=f"{theta:.{ANGLE_DECIMALS}f}",
+                fmt=f".{ANGLE_DECIMALS}f",
             ),
             report.check(
                 f"Linha {row.number}: cobertura",

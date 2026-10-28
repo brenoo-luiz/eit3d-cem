@@ -86,7 +86,8 @@ def test_first_start_at_zero_reads_zero_not_360():
         ),
     )
     row = ElectrodeLayout(config).rows[0]
-    centroid = next(iter(row)).theta_center + 1e-9
+    # The mesh centroid misses the exact angle by about 1e-5 rad.
+    centroid = next(iter(row)).theta_center + 1e-5
     assert _first_start(row, centroid) == 0.0
 
 
