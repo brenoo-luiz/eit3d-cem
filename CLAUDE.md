@@ -10,12 +10,20 @@ The user's personal standards in `~/.claude/CLAUDE.md` also apply. Topic guides 
 
 Setup fixed by the supervisor (do not change without asking):
 
-- Cylinder of diameter 2 and height 2; L = 16 electrodes, 50% coverage, height 1, centered in z.
-- First electrode at `rotation = 1` rad, numbered clockwise.
+- Cylinder of radius 1 and height/radius 2; one row of L = 16 electrodes, 50% coverage, height/width 16/π (height 1), centered in z.
+- First electrode at θ = 1 rad (57.2958°), numbered clockwise.
 - Weak form: ∫γ∇u·∇v + Σ (1/z_j) ∫_{e_j} (u − U_j)(v − V_j) = Σ I_j V_j, with z_j = 1e-3, ΣU = 0, ΣI = 0.
 - Adjacent current patterns I = (1, −1, 0, …), all 16 of them, measuring U on every electrode.
 
-Next tasks, in order: control of electrode position and height, then the derivative of the forward operator (book section 3.2.2), then the inverse problem.
+Electrode parameters asked by the supervisor (email of Oct 2026), with the choices made where the email was open:
+
+- Cylinder height/radius (`MeshConfig.aspect`) and one electrode height/width (`ElectrodeConfig.aspect`, width = arc length).
+- Rows (`ElectrodeConfig.rows`, top to bottom), each with count, coverage of the cross section, sense and θ (`RowConfig`).
+- θ in degrees from the generatrix θ = 0 (x axis) to the leading edge of the first electrode, measured in the row sense; the electrode extends in that sense, so a clockwise row mirrors an anticlockwise one. This differs from the 2D code (FEIT_CBM34), where e1 always spans [rotate, rotate + w].
+- Electrodes are identical within a row; rows with different widths have different heights. Vertical gaps between rows and to the top and bottom are all equal.
+- Electrodes are numbered row after row; currents are adjacent within each row (provisional until the measurement protocols).
+
+Next tasks, in order: measurement protocols (how currents are injected and voltages collected), then the derivative of the forward operator (book section 3.2.2), then the inverse problem.
 
 ## Environment and commands
 
@@ -28,12 +36,14 @@ git config core.hooksPath .githooks
 python main.py electrodes [--force]
 python main.py forward [--force]
 python main.py consistency [--force]
+python main.py electrodes --config configs/three_rows.toml   # outputs/three_rows/
 
 pytest -q
 pytest tests/test_cem.py::test_name
 ```
 
 - `--force` regenerates the mesh instead of loading it from `cache/`. A step exits non-zero if any check fails.
+- `--config` reads a TOML setup (`[mesh]`, `[electrodes]`, `[[electrodes.rows]]`, see `configs/`); missing keys keep the defaults.
 - The pre-commit hook runs `pytest -q` and blocks the commit if a test fails.
 - Tests that need FEniCSx use `pytest.importorskip("dolfinx")`. Reuse the session fixtures `mesh_config` and `mesh_data` from `tests/conftest.py` (coarse mesh, `size_max=0.25`, `size_min=0.08`) instead of meshing inside a test.
 
@@ -41,12 +51,12 @@ pytest tests/test_cem.py::test_name
 
 Pipeline: `config` → `geometry` (layout + mesh) → `fields` (γ) → `forward` (CEM solve and checks) → `plots`, run by `steps`.
 
-- `cli.py`: `STEPS` maps a name to `Step(output, run)`; `main` saves everything printed to `outputs/<output>.txt`. A new step is `steps/<name>.py` with `run(config=None, ..., force=False, cache_dir=CACHE_DIR, outputs=OUTPUTS_DIR) -> bool` plus an entry in `STEPS` (`stepN`).
+- `cli.py`: `STEPS` maps a name to `Step(output, run)`; `main` saves everything printed to `outputs/<output>.txt` (or `outputs/<config name>/` with `--config`); `load_setup` reads the TOML setup. A new step is `steps/<name>.py` with `run(config=None, ..., force=False, cache_dir=CACHE_DIR, outputs=OUTPUTS_DIR) -> bool` plus an entry in `STEPS` (`stepN`).
 - `config.py`: frozen dataclasses validated in `__post_init__`, and the gmsh tags: top 1, bottom 2, gap 3, volume 10, electrode j = `electrode_tag(j) = 100 + j`.
-- `geometry/electrodes.py`: `ElectrodeLayout` is the only source of electrode angles (1-based, `rotation`, `clockwise`, `coverage`, `gap_center`, `locate`).
-- `geometry/mesh.py`: OCC cylinder fragmented by wedges, seam rotated into a gap, surfaces tagged by center of mass, refinement near electrode edges. Meshes are cached by a hash of the config; bump `_SCHEMA` whenever mesh generation changes.
+- `geometry/electrodes.py`: `ElectrodeLayout` is the only source of electrode positions: it stacks `ElectrodeRow`s with equal vertical gaps, indexes electrodes 1-based across rows, and gives `locate(theta, z)` and the `seam` angle.
+- `geometry/mesh.py`: OCC cylinder fragmented by wedges, seam rotated to the gap center farthest from every row (staggered rows may share no gap, then the seam cuts an electrode), surfaces tagged by center of mass, refinement only on the true border of each electrode. Meshes are cached by a hash of the config; bump `_SCHEMA` whenever mesh generation changes.
 - `forward/cem.py`: `CEMForward` solves A w_j = c_j once per electrode (CG + BoomerAMG) and builds the Schur complement; `solve(currents)` is a dense solve with ΣU = 0 through a Lagrange multiplier; `potential(U) = Σ U_j w_j`.
-- `forward/checks.py`: checks of step 2 (currents, ΣU, reciprocity, antisymmetry and circulant structure for γ ≡ 1, extremes on the driving electrodes).
+- `forward/checks.py`: checks of step 2 (currents, ΣU, reciprocity, antisymmetry and circulant structure for γ ≡ 1, which apply only to a single row, extremes on the driving electrodes).
 - `forward/consistency.py`: `ConsistencyTests`, the four tests of book section 3.2.1, with the flux from the gradient (as in the book) and the consistent flux from the weak form.
 - `utils/report.py`: report helpers (`title`, `section`, `info`, `check`, `matrix`, `result`, `files`). `check` prints `correto`/`incorreto`; step tests assert `incorreto` never appears.
 - `plots/paper.py`: shared academic figure style (`STYLE`, `PALETTE`, `COLUMN`, `frame`, `save`).

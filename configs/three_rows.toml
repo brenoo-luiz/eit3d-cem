@@ -1,0 +1,26 @@
+# Three rows with different counts, coverages, senses and starting angles.
+# θ in degrees, measured in the numbering sense from the line θ = 0.
+
+[mesh]
+aspect = 3.0  # cylinder height / radius
+
+[electrodes]
+aspect = 2.0  # electrode height / width
+
+[[electrodes.rows]]
+count = 8
+coverage = 0.5
+theta = 0.0
+clockwise = false
+
+[[electrodes.rows]]
+count = 16
+coverage = 0.6
+theta = 30.0
+clockwise = true
+
+[[electrodes.rows]]
+count = 12
+coverage = 0.4
+theta = 15.0
+clockwise = false
