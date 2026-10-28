@@ -8,10 +8,26 @@ from cem3d.config import ElectrodeConfig, MeshConfig, RowConfig, SetupConfig
 from cem3d.geometry.electrodes import TWO_PI, ElectrodeLayout
 
 
-def layout(*rows: RowConfig, aspect: float = 1.0, height: float = 2.0):
-    electrodes = (
-        ElectrodeConfig(aspect=aspect, rows=rows) if rows else ElectrodeConfig()
-    )
+def layout(
+    *rows: RowConfig,
+    coverage: float = 0.5,
+    aspect: float = 1.0,
+    height: float = 2.0,
+    margins: tuple[float, float] = (0.3, 0.3),
+):
+    if not rows:
+        electrodes = ElectrodeConfig()
+    elif len(rows) == 1:
+        electrodes = ElectrodeConfig(coverage=coverage, aspect=aspect, rows=rows)
+    else:
+        top, bottom = margins
+        electrodes = ElectrodeConfig(
+            coverage=coverage,
+            aspect=aspect,
+            rows=rows,
+            top_margin=top,
+            bottom_margin=bottom,
+        )
     return ElectrodeLayout(
         SetupConfig(mesh=MeshConfig(aspect=height), electrodes=electrodes)
     )
@@ -27,8 +43,11 @@ def test_default_sizes_follow_coverage():
 
 
 def test_single_row_is_centered_in_height():
-    for e in layout():
+    lay = layout()
+    for e in lay:
         assert (e.z_min, e.z_max) == pytest.approx((-0.5, 0.5))
+    assert lay.top_margin == pytest.approx(lay.bottom_margin)
+    assert lay.row_gap == 0.0
 
 
 def test_anticlockwise_row_starts_at_theta():
@@ -60,15 +79,30 @@ def test_old_layout_is_the_clockwise_row_at_minus_one_rad_minus_width():
         assert (e.theta_start, e.theta_end) == pytest.approx((start, start + width))
 
 
-def test_height_follows_the_aspect_ratio_of_each_row():
-    lay = layout(RowConfig(count=8), RowConfig(count=16), aspect=1.5)
+def test_every_row_has_electrodes_of_the_size_of_the_first_row():
+    lay = layout(RowConfig(count=16), RowConfig(count=8), RowConfig(count=12))
     for e in lay:
-        assert e.height == pytest.approx(1.5 * e.width)
-    assert lay[1].height == pytest.approx(2 * lay[9].height)
+        assert e.width == pytest.approx(0.5 * TWO_PI / 16)
+        assert e.height == pytest.approx(e.width)
+
+
+def test_coverage_of_each_row_follows_its_count():
+    lay = layout(RowConfig(count=16), RowConfig(count=8), RowConfig(count=12))
+    assert [row.coverage for row in lay.rows] == pytest.approx([0.5, 0.25, 0.375])
+
+
+def test_electrodes_are_evenly_spaced_within_each_row():
+    lay = layout(RowConfig(count=16), RowConfig(count=8, theta=10.0, clockwise=False))
+    for row in lay.rows:
+        starts = [e.theta_start for e in row]
+        steps = np.diff(starts) * row.sense
+        assert steps == pytest.approx([TWO_PI / len(row)] * (len(row) - 1))
 
 
 def test_rows_are_numbered_from_top_to_bottom():
-    lay = layout(RowConfig(count=8), RowConfig(count=12), RowConfig(count=16))
+    lay = layout(
+        RowConfig(count=8), RowConfig(count=12), RowConfig(count=16), coverage=0.4
+    )
     assert [len(row) for row in lay.rows] == [8, 12, 16]
     assert [e.index for e in lay] == list(range(1, 37))
     assert [next(iter(row)).index for row in lay.rows] == [1, 9, 21]
@@ -76,14 +110,20 @@ def test_rows_are_numbered_from_top_to_bottom():
     assert centers == sorted(centers, reverse=True)
 
 
-def test_vertical_gaps_are_all_equal():
-    lay = layout(RowConfig(count=8), RowConfig(count=16), RowConfig(count=12))
+def test_margins_are_set_and_gaps_between_rows_are_equal():
+    lay = layout(
+        RowConfig(count=16),
+        RowConfig(count=8),
+        RowConfig(count=12),
+        margins=(0.2, 0.5),
+    )
     rows = lay.rows
-    gaps = [1.0 - rows[0].z_max]
-    gaps += [upper.z_min - lower.z_max for upper, lower in pairwise(rows)]
-    gaps.append(rows[-1].z_min + 1.0)
-    assert gaps == pytest.approx([lay.vertical_gap] * 4)
-    assert lay.vertical_gap > 0
+    assert 1.0 - rows[0].z_max == pytest.approx(0.2)
+    assert rows[-1].z_min + 1.0 == pytest.approx(0.5)
+    gaps = [upper.z_min - lower.z_max for upper, lower in pairwise(rows)]
+    assert gaps == pytest.approx([lay.row_gap] * 2)
+    assert lay.row_gap > 0
+    assert (lay.top_margin, lay.bottom_margin) == pytest.approx((0.2, 0.5))
 
 
 @pytest.mark.parametrize("clockwise", [True, False])
@@ -112,7 +152,7 @@ def test_locate_on_the_leading_edge_stays_in_the_row():
 
 
 def test_electrodes_do_not_overlap():
-    lay = layout(RowConfig(coverage=0.9))
+    lay = layout(RowConfig(), coverage=0.9)
     starts = sorted(e.theta_start % TWO_PI for e in lay)
     gaps = np.diff(starts + [starts[0] + TWO_PI])
     assert np.all(gaps > lay[1].width)
@@ -140,7 +180,7 @@ def test_staggered_rows_share_no_gap():
 
 
 def test_row_of_finds_the_row_of_each_electrode():
-    lay = layout(RowConfig(count=8), RowConfig(count=12), aspect=1.0)
+    lay = layout(RowConfig(count=8), RowConfig(count=12))
     first, second = lay.rows
     assert [lay.row_of(j) for j in (1, 8, 9, 20)] == [first, first, second, second]
     with pytest.raises(IndexError):

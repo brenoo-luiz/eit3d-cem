@@ -5,16 +5,17 @@
 aspect = 2.0  # cylinder height / radius
 
 [electrodes]
+coverage = 0.5  # of the cross section, by the first row
 aspect = 2.0  # electrode height / width
+top_margin = 0.3  # first row to the top
+bottom_margin = 0.5  # last row to the bottom
 
 [[electrodes.rows]]
 count = 16
-coverage = 0.5
 theta = 0.0
 clockwise = true
 
 [[electrodes.rows]]
 count = 16
-coverage = 0.5
 theta = 11.25
 clockwise = true

@@ -61,15 +61,19 @@ def test_empty_setup_file_gives_the_default(tmp_path):
 def test_setup_file_sets_every_row(tmp_path):
     path = tmp_path / "rows.toml"
     path.write_text(
-        "[mesh]\naspect = 3.0\n[electrodes]\naspect = 2.0\n"
+        "[mesh]\naspect = 3.0\n"
+        "[electrodes]\ncoverage = 0.4\naspect = 2.0\n"
+        "top_margin = 0.3\nbottom_margin = 0.5\n"
         "[[electrodes.rows]]\ncount = 8\ntheta = 30.0\nclockwise = false\n"
-        "[[electrodes.rows]]\ncount = 12\ncoverage = 0.4\n"
+        "[[electrodes.rows]]\ncount = 12\n"
     )
     config = load_setup(path)
     assert config.mesh.height == 3.0
-    first, second = config.electrodes.rows
+    e = config.electrodes
+    assert (e.coverage, e.aspect, e.top_margin, e.bottom_margin) == (0.4, 2, 0.3, 0.5)
+    first, second = e.rows
     assert (first.count, first.theta, first.clockwise) == (8, 30.0, False)
-    assert (second.count, second.coverage) == (12, 0.4)
+    assert (second.count, second.clockwise) == (12, True)
 
 
 @pytest.mark.parametrize("path", CONFIGS, ids=lambda p: Path(p).stem)

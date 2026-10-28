@@ -39,12 +39,19 @@ class Electrode:
 
 class ElectrodeRow:
     def __init__(
-        self, config: RowConfig, number: int, first: int, z_min: float, z_max: float
+        self,
+        config: RowConfig,
+        number: int,
+        first: int,
+        width: float,
+        z_min: float,
+        z_max: float,
     ) -> None:
         self._config = config
         self._number = number
         self._first = first
         self._theta = math.radians(config.theta)
+        self._width = width
         self.z_min = z_min
         self.z_max = z_max
         self._electrodes = tuple(self._electrode(j) for j in range(config.count))
@@ -67,7 +74,11 @@ class ElectrodeRow:
 
     @property
     def width(self) -> float:
-        return self.sector * self._config.coverage
+        return self._width
+
+    @property
+    def coverage(self) -> float:
+        return self._width / self.sector
 
     @property
     def sense(self) -> int:
@@ -120,18 +131,35 @@ class ElectrodeRow:
 
 class ElectrodeLayout:
     def __init__(self, config: SetupConfig) -> None:
-        heights = config.electrodes.heights(config.mesh.radius)
-        self._vertical_gap = (config.mesh.height - sum(heights)) / (len(heights) + 1)
-        self._rows = self._build(config, heights)
-        self._electrodes = tuple(e for row in self._rows for e in row)
+        e, m = config.electrodes, config.mesh
+        height = e.height(m.radius)
+        n = len(e.rows)
+        if n == 1:
+            self._top_margin = self._bottom_margin = (m.height - height) / 2
+            self._row_gap = 0.0
+        else:
+            self._top_margin, self._bottom_margin = e.top_margin, e.bottom_margin
+            free = m.height - self._top_margin - self._bottom_margin - n * height
+            self._row_gap = free / (n - 1)
+        self._rows = self._build(config, e.width(m.radius) / m.radius, height)
+        self._electrodes = tuple(el for row in self._rows for el in row)
 
     @property
     def rows(self) -> tuple[ElectrodeRow, ...]:
         return self._rows
 
     @property
-    def vertical_gap(self) -> float:
-        return self._vertical_gap
+    def top_margin(self) -> float:
+        return self._top_margin
+
+    @property
+    def bottom_margin(self) -> float:
+        return self._bottom_margin
+
+    @property
+    def row_gap(self) -> float:
+        """Vertical gap between consecutive rows (0 with a single row)."""
+        return self._row_gap
 
     def __len__(self) -> int:
         return len(self._electrodes)
@@ -143,17 +171,15 @@ class ElectrodeLayout:
         return self._electrodes[index - 1]
 
     def _build(
-        self, config: SetupConfig, heights: tuple[float, ...]
+        self, config: SetupConfig, width: float, height: float
     ) -> tuple[ElectrodeRow, ...]:
         rows = []
-        top = config.mesh.height / 2 - self._vertical_gap
+        top = config.mesh.height / 2 - self._top_margin
         first = 1
-        for number, (row, height) in enumerate(
-            zip(config.electrodes.rows, heights, strict=True), start=1
-        ):
-            rows.append(ElectrodeRow(row, number, first, top - height, top))
+        for number, row in enumerate(config.electrodes.rows, start=1):
+            rows.append(ElectrodeRow(row, number, first, width, top - height, top))
             first += row.count
-            top -= height + self._vertical_gap
+            top -= height + self._row_gap
         return tuple(rows)
 
     def row_of(self, index: int) -> ElectrodeRow:

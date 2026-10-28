@@ -73,7 +73,10 @@ def test_mesh_is_cached(mesh_config, tmp_path):
 def staggered(tmp_path_factory):
     rows = (RowConfig(theta=0.0), RowConfig(theta=11.25))
     config = SetupConfig(
-        mesh=MeshConfig(), electrodes=ElectrodeConfig(aspect=2.0, rows=rows)
+        mesh=MeshConfig(),
+        electrodes=ElectrodeConfig(
+            aspect=2.0, rows=rows, top_margin=0.4, bottom_margin=0.4
+        ),
     )
     return CylinderWithElectrodes(
         config, cache_dir=tmp_path_factory.mktemp("cache")

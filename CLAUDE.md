@@ -18,10 +18,12 @@ Setup fixed by the supervisor (do not change without asking):
 Electrode parameters asked by the supervisor (email of Oct 2026), with the choices made where the email was open:
 
 - Cylinder height/radius (`MeshConfig.aspect`) and one electrode height/width (`ElectrodeConfig.aspect`, width = arc length).
-- Rows (`ElectrodeConfig.rows`, top to bottom), each with count, coverage of the cross section, sense and θ (`RowConfig`).
+- Rows (`ElectrodeConfig.rows`, top to bottom), each with count, sense and θ (`RowConfig`).
 - θ in degrees from the generatrix θ = 0 (x axis) to the leading edge of the first electrode, measured in the row sense; the electrode extends in that sense, so a clockwise row mirrors an anticlockwise one. This differs from the 2D code (FEIT_CBM34), where e1 always spans [rotate, rotate + w].
-- Electrodes are identical within a row; rows with different widths have different heights. Vertical gaps between rows and to the top and bottom are all equal.
+- Every electrode has the same size (follow-up email, Oct 2026): the first row sets it, with L₁ electrodes covering `ElectrodeConfig.coverage` of the cross section. The other rows keep that size and space their electrodes evenly, so their coverage is L_k · coverage / L₁.
+- Vertical placement: with several rows, `top_margin` (first row to the top) and `bottom_margin` (last row to the bottom) are chosen and the gaps between rows are equal; a single row is centered and takes no margins.
 - Electrodes are numbered row after row; currents are adjacent within each row (provisional until the measurement protocols).
+- The relative error of U − U* in step 3 is acceptable for now; refine at the electrode edges only if it grows.
 
 Next tasks, in order: measurement protocols (how currents are injected and voltages collected), then the derivative of the forward operator (book section 3.2.2), then the inverse problem.
 
@@ -53,7 +55,7 @@ Pipeline: `config` → `geometry` (layout + mesh) → `fields` (γ) → `forward
 
 - `cli.py`: `STEPS` maps a name to `Step(output, run)`; `main` saves everything printed to `outputs/<output>.txt` (or `outputs/<config name>/` with `--config`); `load_setup` reads the TOML setup. A new step is `steps/<name>.py` with `run(config=None, ..., force=False, cache_dir=CACHE_DIR, outputs=OUTPUTS_DIR) -> bool` plus an entry in `STEPS` (`stepN`).
 - `config.py`: frozen dataclasses validated in `__post_init__`, and the gmsh tags: top 1, bottom 2, gap 3, volume 10, electrode j = `electrode_tag(j) = 100 + j`.
-- `geometry/electrodes.py`: `ElectrodeLayout` is the only source of electrode positions: it stacks `ElectrodeRow`s with equal vertical gaps, indexes electrodes 1-based across rows, and gives `locate(theta, z)` and the `seam` angle.
+- `geometry/electrodes.py`: `ElectrodeLayout` is the only source of electrode positions: it stacks `ElectrodeRow`s of equal electrodes between the top and bottom margins with equal gaps between rows, indexes electrodes 1-based across rows, and gives `locate(theta, z)` and the `seam` angle.
 - `geometry/mesh.py`: OCC cylinder fragmented by wedges, seam rotated to the gap center farthest from every row (staggered rows may share no gap, then the seam cuts an electrode), surfaces tagged by center of mass, refinement only on the true border of each electrode. Meshes are cached by a hash of the config; bump `_SCHEMA` whenever mesh generation changes.
 - `forward/cem.py`: `CEMForward` solves A w_j = c_j once per electrode (CG + BoomerAMG) and builds the Schur complement; `solve(currents)` is a dense solve with ΣU = 0 through a Lagrange multiplier; `potential(U) = Σ U_j w_j`.
 - `forward/checks.py`: checks of step 2 (currents, ΣU, reciprocity, antisymmetry and circulant structure for γ ≡ 1, which apply only to a single row, extremes on the driving electrodes).

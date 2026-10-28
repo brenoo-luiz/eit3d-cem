@@ -25,7 +25,7 @@ from cem3d.config import (
 )
 from cem3d.geometry.electrodes import ElectrodeLayout
 
-_SCHEMA = 3
+_SCHEMA = 4
 
 
 @dataclass

@@ -36,11 +36,16 @@ def _describe(config: SetupConfig, layout: ElectrodeLayout) -> None:
     report.info(
         "Cilindro", f"raio {m.radius:g}, altura {m.height:g} (H/R = {m.aspect:g})"
     )
+    report.info("Eletrodos", f"{len(e.rows)} linha(s), {e.count} eletrodos")
     report.info(
-        "Eletrodos",
-        f"{len(e.rows)} linha(s), {e.count} eletrodos, altura/largura {e.aspect:.4g}",
+        "Tamanho (todos)",
+        f"largura {e.width(m.radius):.4g}, altura {e.height(m.radius):.4g} "
+        f"(altura/largura {e.aspect:.4g}, cobertura da linha 1 {e.coverage:.0%})",
     )
-    report.info("Folga vertical entre linhas", f"{layout.vertical_gap:.4g}")
+    report.info("Distância ao topo", f"{layout.top_margin:.4g}")
+    if len(layout.rows) > 1:
+        report.info("Distância entre linhas", f"{layout.row_gap:.4g}")
+    report.info("Distância à base", f"{layout.bottom_margin:.4g}")
     report.info("Referência de θ", "geratriz θ = 0 (eixo x), linha 1 no topo")
     for row in layout.rows:
         r = row.config
@@ -49,13 +54,9 @@ def _describe(config: SetupConfig, layout: ElectrodeLayout) -> None:
         sense = "horário" if r.clockwise else "anti-horário"
         report.info(
             f"Linha {row.number} (e{first} a e{last})",
-            f"L = {r.count}, cobertura {r.coverage:.0%}, θ = {r.theta:g}°, {sense}",
+            f"L = {r.count}, cobertura {row.coverage:.4g}, θ = {r.theta:g}°, {sense}",
         )
-        report.info(
-            "",
-            f"largura {r.width(m.radius):.4g}, altura {row.z_max - row.z_min:.4g}, "
-            f"z de {row.z_min:.4g} a {row.z_max:.4g}",
-        )
+        report.info("", f"z de {row.z_min:.4g} a {row.z_max:.4g}")
 
 
 def _first_start(row: ElectrodeRow, angle: float) -> float:
@@ -86,6 +87,7 @@ def run(
     areas = np.array([facet_area(data, electrode_tag(el.index)) for el in layout])
     exact = np.array([el.area(m.radius) for el in layout])
     area_err = float(np.max(np.abs(areas - exact) / exact))
+    area_spread = float((areas.max() - areas.min()) / areas.mean())
 
     centroids = np.array(
         [facet_centroid(data, electrode_tag(el.index)) for el in layout]
@@ -107,6 +109,12 @@ def run(
     checks = [
         report.check(
             "Erro relativo da área (maior)", area_err, area_err < TOL_AREA, ideal="~0"
+        ),
+        report.check(
+            "Diferença relativa entre as áreas",
+            area_spread,
+            area_spread < TOL_AREA,
+            ideal="~0",
         ),
         report.check(
             "Erro da posição angular (maior, rad)",
@@ -132,6 +140,7 @@ def run(
         coverage = areas[start:stop].sum() / (
             TWO_PI * m.radius * (row.z_max - row.z_min)
         )
+        ideal = len(row) * config.electrodes.coverage / config.electrodes.rows[0].count
         checks += [
             report.check(
                 f"Linha {row.number}: ordem e espaçamento (rad)",
@@ -149,8 +158,8 @@ def run(
             report.check(
                 f"Linha {row.number}: cobertura",
                 coverage,
-                abs(coverage - row.config.coverage) < TOL_AREA,
-                ideal=f"{row.config.coverage:g}",
+                abs(coverage - ideal) < TOL_AREA,
+                ideal=f"{ideal:.4f}",
                 fmt=".4f",
             ),
         ]

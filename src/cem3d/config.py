@@ -25,42 +25,60 @@ def electrode_tag(index: int) -> int:
 @dataclass(frozen=True)
 class RowConfig:
     count: int = 16
-    coverage: float = 0.5
     theta: float = DEFAULT_THETA
     clockwise: bool = True
 
     def __post_init__(self) -> None:
         if self.count < 2:
             raise ValueError("count must be at least 2")
-        if not 0 < self.coverage < 1:
-            raise ValueError("coverage must be in (0, 1)")
-        object.__setattr__(self, "coverage", float(self.coverage))
         object.__setattr__(self, "theta", float(self.theta))
-
-    def width(self, radius: float) -> float:
-        """Arc length of one electrode."""
-        return self.coverage * math.tau * radius / self.count
 
 
 @dataclass(frozen=True)
 class ElectrodeConfig:
+    coverage: float = 0.5  # covered by the first row; sets the size of every electrode
     aspect: float = DEFAULT_ELECTRODE_ASPECT  # electrode height / width
     rows: tuple[RowConfig, ...] = (RowConfig(),)  # top to bottom
+    top_margin: float | None = None  # first row to the top, only with several rows
+    bottom_margin: float | None = None  # last row to the bottom, likewise
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "aspect", float(self.aspect))
+        for name in ("coverage", "aspect"):
+            object.__setattr__(self, name, float(getattr(self, name)))
         object.__setattr__(self, "rows", tuple(self.rows))
+        if not 0 < self.coverage < 1:
+            raise ValueError("coverage must be in (0, 1)")
         if self.aspect <= 0:
             raise ValueError("aspect must be positive")
         if not self.rows:
             raise ValueError("need at least one row of electrodes")
+        if max(row.count for row in self.rows) * self.coverage >= self.rows[0].count:
+            raise ValueError("the electrodes of every row must fit around the cylinder")
+        self._check_margins()
+
+    def _check_margins(self) -> None:
+        margins = (self.top_margin, self.bottom_margin)
+        if len(self.rows) == 1:
+            if margins != (None, None):
+                raise ValueError("a single row is centered: do not set the margins")
+            return
+        if None in margins:
+            raise ValueError("several rows need top_margin and bottom_margin")
+        for name in ("top_margin", "bottom_margin"):
+            object.__setattr__(self, name, float(getattr(self, name)))
+        if min(self.top_margin, self.bottom_margin) <= 0:
+            raise ValueError("the margins must be positive")
 
     @property
     def count(self) -> int:
         return sum(row.count for row in self.rows)
 
-    def heights(self, radius: float) -> tuple[float, ...]:
-        return tuple(self.aspect * row.width(radius) for row in self.rows)
+    def width(self, radius: float) -> float:
+        """Arc length of every electrode."""
+        return self.coverage * math.tau * radius / self.rows[0].count
+
+    def height(self, radius: float) -> float:
+        return self.aspect * self.width(radius)
 
 
 @dataclass(frozen=True)
@@ -89,7 +107,9 @@ class SetupConfig:
     electrodes: ElectrodeConfig = field(default_factory=ElectrodeConfig)
 
     def __post_init__(self) -> None:
-        if sum(self.electrodes.heights(self.mesh.radius)) >= self.mesh.height:
+        e = self.electrodes
+        margins = (e.top_margin or 0.0) + (e.bottom_margin or 0.0)
+        if margins + len(e.rows) * e.height(self.mesh.radius) >= self.mesh.height:
             raise ValueError("the rows of electrodes must fit in the cylinder")
 
 

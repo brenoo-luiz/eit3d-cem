@@ -119,7 +119,9 @@ def test_staggered_rows_keep_the_mirror_symmetry(tmp_path):
     rows = (RowConfig(theta=0.0), RowConfig(theta=11.25))
     config = SetupConfig(
         mesh=MeshConfig(size_max=0.25, size_min=0.08),
-        electrodes=ElectrodeConfig(aspect=2.0, rows=rows),
+        electrodes=ElectrodeConfig(
+            aspect=2.0, rows=rows, top_margin=0.4, bottom_margin=0.4
+        ),
     )
     data = CylinderWithElectrodes(config, cache_dir=tmp_path).get()
     homogeneous = CEMForward(data, constant_conductivity(data.mesh, 1.0))
