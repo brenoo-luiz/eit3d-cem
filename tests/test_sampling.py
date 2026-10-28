@@ -23,3 +23,11 @@ def test_slice_is_empty_outside_the_disk(linear):
     X, Y, (V,) = horizontal_slice([linear], 1.0, 0.0, n=41)
     assert np.all(np.isnan(V[X**2 + Y**2 > 1.0]))
     assert V.shape == (41, 41)
+
+
+def test_points_that_miss_the_mesh_are_empty(linear):
+    X, Y, (V,) = horizontal_slice([linear], 1.1, 0.1, n=41)
+    assert np.all(np.isnan(V[X**2 + Y**2 > 1.0]))
+    inside = ~np.isnan(V)
+    assert inside.sum() > 0.9 * np.sum(X**2 + Y**2 < 0.95)
+    assert np.allclose(V[inside], 2 * X[inside] - Y[inside] + 0.3)
