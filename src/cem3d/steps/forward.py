@@ -99,7 +99,6 @@ def run(
             ideal="~0",
         ),
     ]
-    # the rotation and mirror symmetries of γ ≡ 1 hold only for a single ring
     if single_row:
         symmetry_err = antisymmetry_error(sol_h.voltages[0])
         circulant_err = circulant_error(sol_h.voltages)
@@ -135,20 +134,24 @@ def run(
     )
     report.info("Maior efeito da inclusão", f"{np.abs(difference).max():.2e}")
 
-    potential = with_inclusion.potential(sol_i.voltages[0])
-    effect = homogeneous.potential(sol_h.voltages[0])
-    effect.x.array[:] = potential.x.array - effect.x.array
-    paths = [
-        render_potential(
-            potential,
-            effect,
-            data.layout,
-            inclusion,
-            config.mesh.radius,
-            outputs / "step2_potential.png",
-            z=data.layout.rows[0].z_center,
+    paths = []
+    for row in data.layout.rows:
+        experiment = row.first - 1
+        potential = with_inclusion.potential(sol_i.voltages[experiment])
+        effect = homogeneous.potential(sol_h.voltages[experiment])
+        effect.x.array[:] = potential.x.array - effect.x.array
+        name = "step2_potential" if single_row else f"step2_potential_row{row.number}"
+        paths.append(
+            render_potential(
+                potential,
+                effect,
+                data.layout,
+                inclusion,
+                config.mesh.radius,
+                outputs / f"{name}.png",
+                z=row.z_center,
+            )
         )
-    ]
     report.result(
         ok,
         "problema direto do CEM resolvido corretamente",

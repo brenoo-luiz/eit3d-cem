@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -76,13 +77,11 @@ def render_boundary(
     band: float,
     label: str,
     path: Path,
-    z: float = 0.0,
+    levels: Sequence[float] | None = None,
 ) -> Path:
-    mask = _band(points, band, z)
-    theta = np.arctan2(points[mask, 1], points[mask, 0]) % TWO_PI
-    order = np.argsort(theta)
-    theta, electrode = theta[order], on_electrode[mask][order]
-    limit = 1.1 * max(np.abs(v[mask]).max() for v in values)
+    levels = [0.0] * len(values) if levels is None else list(levels)
+    masks = [_band(points, band, z) for z in levels]
+    limit = 1.1 * max(np.abs(v[m]).max() for v, m in zip(values, masks, strict=True))
     columns = 4
     lines = int(np.ceil(len(values) / columns))
     with plt.rc_context(STYLE):
@@ -95,7 +94,11 @@ def render_boundary(
             squeeze=False,
             gridspec_kw={"hspace": 0.28, "wspace": 0.06},
         )
-        for i, (ax, value) in enumerate(zip(axes.ravel(), values, strict=False), 1):
+        panels = zip(axes.ravel(), values, masks, strict=False)
+        for i, (ax, value, mask) in enumerate(panels, 1):
+            theta = np.arctan2(points[mask, 1], points[mask, 0]) % TWO_PI
+            order = np.argsort(theta)
+            theta, electrode = theta[order], on_electrode[mask][order]
             y = value[mask][order]
             ax.plot(theta, y, color=FRAME, linewidth=0.4, zorder=1)
             ax.plot(

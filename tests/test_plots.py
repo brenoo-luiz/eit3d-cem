@@ -62,3 +62,25 @@ def test_consistency_figures(tmp_path):
         ),
     ]
     assert all(p.exists() and p.stat().st_size > 0 for p in paths)
+
+
+def test_boundary_figure_uses_one_height_per_panel(tmp_path):
+    theta = np.linspace(0, 2 * np.pi, 100, endpoint=False)
+    ring = np.column_stack([np.cos(theta), np.sin(theta)])
+    points = np.vstack(
+        [
+            np.column_stack([ring, np.full(100, 0.5)]),
+            np.column_stack([ring, -0.5 * np.ones(100)]),
+        ]
+    )
+    values = [np.r_[np.ones(100), np.zeros(100)], np.r_[np.zeros(100), np.ones(100)]]
+    path = render_boundary(
+        points,
+        values,
+        np.zeros(200, dtype=bool),
+        0.1,
+        "flux",
+        tmp_path / "rows.png",
+        levels=[0.5, -0.5],
+    )
+    assert path.exists() and path.stat().st_size > 0

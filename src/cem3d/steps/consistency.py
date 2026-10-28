@@ -14,7 +14,7 @@ from cem3d.config import (
 from cem3d.fields import sphere_conductivity
 from cem3d.forward.cem import CEMForward
 from cem3d.forward.consistency import ConsistencyTests
-from cem3d.forward.currents import adjacent_by_row
+from cem3d.forward.currents import adjacent_by_row, driving_electrodes
 from cem3d.geometry.mesh import CylinderWithElectrodes, cache_path
 from cem3d.plots.consistency import render_boundary, render_contact, render_matrix
 from cem3d.utils import report
@@ -105,6 +105,7 @@ def run(
 
     band = config.mesh.size_min
     level = data.layout.rows[0].z_center
+    levels = [data.layout.row_of(j).z_center for j in driving_electrodes(currents)]
     points, profile = tests.contact_profile(solution.voltages[0], 1, consistent=True)
     fluxes = [tests.boundary_flux(v, consistent=True) for v in solution.voltages]
     book_fluxes = [tests.boundary_flux(v, consistent=False) for v in solution.voltages]
@@ -127,7 +128,7 @@ def run(
             band,
             r"$\gamma\,\partial u / \partial \eta$",
             outputs / "step3_flux.png",
-            z=level,
+            levels=levels,
         ),
         render_boundary(
             tests.boundary_points,
@@ -136,7 +137,7 @@ def run(
             band,
             r"$\gamma\,\partial u / \partial \eta$ (gradiente)",
             outputs / "step3_flux_gradient.png",
-            z=level,
+            levels=levels,
         ),
         render_boundary(
             tests.boundary_points,
@@ -145,7 +146,7 @@ def run(
             band,
             r"$u + z\gamma\,\partial u / \partial \eta$",
             outputs / "step3_boundary.png",
-            z=level,
+            levels=levels,
         ),
         render_contact(
             points,

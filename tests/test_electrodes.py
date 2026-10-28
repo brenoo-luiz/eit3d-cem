@@ -137,3 +137,11 @@ def test_seam_avoids_every_row_when_they_share_a_gap():
 def test_staggered_rows_share_no_gap():
     lay = layout(RowConfig(theta=0.0), RowConfig(theta=11.25))
     assert lay.clearance(lay.seam) == 0.0
+
+
+def test_row_of_finds_the_row_of_each_electrode():
+    lay = layout(RowConfig(count=8), RowConfig(count=12), aspect=1.0)
+    first, second = lay.rows
+    assert [lay.row_of(j) for j in (1, 8, 9, 20)] == [first, first, second, second]
+    with pytest.raises(IndexError):
+        lay.row_of(21)

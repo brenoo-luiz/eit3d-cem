@@ -58,6 +58,10 @@ class ElectrodeRow:
         return self._number
 
     @property
+    def first(self) -> int:
+        return self._first
+
+    @property
     def sector(self) -> float:
         return TWO_PI / self._config.count
 
@@ -91,7 +95,6 @@ class ElectrodeRow:
         )
 
     def _travelled(self, theta: float) -> float:
-        """Angle covered in the row sense from the first leading edge to theta."""
         return (self.sense * theta - self._theta) % TWO_PI % TWO_PI
 
     def contains(self, z: float) -> bool:
@@ -152,6 +155,12 @@ class ElectrodeLayout:
             first += row.count
             top -= height + self._vertical_gap
         return tuple(rows)
+
+    def row_of(self, index: int) -> ElectrodeRow:
+        for row in self._rows:
+            if row.first <= index < row.first + len(row):
+                return row
+        raise IndexError(f"no electrode {index}")
 
     def locate(self, theta: float, z: float) -> int:
         for row in self._rows:

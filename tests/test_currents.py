@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from cem3d.forward.currents import adjacent_by_row, adjacent_pattern
+from cem3d.forward.currents import adjacent_by_row, adjacent_pattern, driving_electrodes
 
 
 def test_first_pattern_matches_the_advisor_example():
@@ -37,3 +37,8 @@ def test_patterns_cycle_inside_each_row():
         [0, 0, 0, 1, -1],
         [0, 0, 0, -1, 1],
     ]
+
+
+def test_driving_electrodes_follow_the_rows():
+    currents = adjacent_by_row([3, 4])
+    assert driving_electrodes(currents) == list(range(1, 8))

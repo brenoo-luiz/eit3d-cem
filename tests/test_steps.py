@@ -123,3 +123,6 @@ def test_steps_pass_with_several_rows(step, rows_case, tmp_path, capsys):
     ok = step.run(config, cache_dir=cache, outputs=tmp_path / "out")
     assert ok
     assert "incorreto" not in capsys.readouterr().out
+    if step is forward:
+        for row in range(1, len(config.electrodes.rows) + 1):
+            assert (tmp_path / "out" / f"step2_potential_row{row}.png").exists()
