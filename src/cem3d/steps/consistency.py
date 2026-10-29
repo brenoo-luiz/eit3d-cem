@@ -44,7 +44,7 @@ def run(
         f"esfera em ({x:g}, {y:g}, {z:g}), raio {inclusion.radius:g}, "
         f"γ = {inclusion.inside:g} (fundo {inclusion.outside:g})",
     )
-    report.info("Fluxo γ ∂u/∂η", "pelo gradiente (livro) e pela forma fraca")
+    report.info("Fluxo γ ∂u/∂η", "pelo gradiente e pela forma fraca")
 
     report.section("Malha")
     if force or not cache_path(config, cache_dir).exists():

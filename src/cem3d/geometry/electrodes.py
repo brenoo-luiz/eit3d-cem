@@ -158,7 +158,6 @@ class ElectrodeLayout:
 
     @property
     def row_gap(self) -> float:
-        """Vertical gap between consecutive rows (0 with a single row)."""
         return self._row_gap
 
     def __len__(self) -> int:

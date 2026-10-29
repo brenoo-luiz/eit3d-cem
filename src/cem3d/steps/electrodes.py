@@ -61,7 +61,6 @@ def _describe(config: SetupConfig, layout: ElectrodeLayout) -> None:
 
 
 def _first_start(row: ElectrodeRow, angle: float) -> float:
-    # Round to the printed precision before wrapping, so 359.999° reads as 0°.
     degrees = np.degrees((row.sense * angle - row.width / 2) % TWO_PI)
     return float(round(degrees, ANGLE_DECIMALS) % 360)
 

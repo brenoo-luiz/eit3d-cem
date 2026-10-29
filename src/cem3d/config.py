@@ -36,11 +36,11 @@ class RowConfig:
 
 @dataclass(frozen=True)
 class ElectrodeConfig:
-    coverage: float = 0.5  # covered by the first row; sets the size of every electrode
-    aspect: float = DEFAULT_ELECTRODE_ASPECT  # electrode height / width
-    rows: tuple[RowConfig, ...] = (RowConfig(),)  # top to bottom
-    top_margin: float | None = None  # first row to the top, only with several rows
-    bottom_margin: float | None = None  # last row to the bottom, likewise
+    coverage: float = 0.5
+    aspect: float = DEFAULT_ELECTRODE_ASPECT
+    rows: tuple[RowConfig, ...] = (RowConfig(),)
+    top_margin: float | None = None
+    bottom_margin: float | None = None
 
     def __post_init__(self) -> None:
         for name in ("coverage", "aspect"):
