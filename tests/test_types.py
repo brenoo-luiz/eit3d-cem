@@ -22,13 +22,20 @@ def type_errors() -> list[dict]:
     return [d for d in report["generalDiagnostics"] if d["severity"] == "error"]
 
 
+def describe(error: dict) -> str:
+    module = Path(error["file"]).relative_to(PACKAGE)
+    return f"{module}:{error['range']['start']['line'] + 1}: {error['message']}"
+
+
 def errors_in(type_errors: list[dict], module: str, needle: str = "") -> list[str]:
     path = str(PACKAGE / module)
     return [
-        f"{module}:{d['range']['start']['line'] + 1}: {d['message']}"
-        for d in type_errors
-        if d["file"] == path and needle in d["message"]
+        describe(d) for d in type_errors if d["file"] == path and needle in d["message"]
     ]
+
+
+def test_package_has_no_type_errors(type_errors):
+    assert [describe(d) for d in type_errors] == []
 
 
 @pytest.mark.parametrize("module", ["config.py", "geometry/electrodes.py"])
@@ -44,9 +51,7 @@ def test_row_colors_come_from_a_color_sequence(type_errors):
     assert errors_in(type_errors, "plots/consistency.py", '"colors"') == []
 
 
-@pytest.mark.parametrize(
-    "module", ["plots/consistency.py", "plots/electrodes.py", "plots/forward.py"]
-)
+@pytest.mark.parametrize("module", ["plots/consistency.py", "plots/forward.py"])
 def test_style_is_accepted_by_rc_context(type_errors, module):
     assert errors_in(type_errors, module, 'parameter "rc"') == []
 

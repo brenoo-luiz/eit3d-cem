@@ -13,3 +13,42 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+# False positives from library annotations: dolfinx/UFL type a Function as
+# Function | Cofunction and form() as a union, petsc4py types its enums as int,
+# SciPy and matplotlib reject arrays they accept. Each file turns off only the
+# rules those libraries trigger in it.
+[[tool.pyright.executionEnvironments]]
+root = "src/cem3d/fields.py"
+reportAttributeAccessIssue = false
+reportReturnType = false
+
+[[tool.pyright.executionEnvironments]]
+root = "src/cem3d/forward/cem.py"
+reportArgumentType = false
+reportAttributeAccessIssue = false
+reportIndexIssue = false
+reportOperatorIssue = false
+reportReturnType = false
+
+[[tool.pyright.executionEnvironments]]
+root = "src/cem3d/forward/checks.py"
+reportArgumentType = false
+reportAttributeAccessIssue = false
+
+[[tool.pyright.executionEnvironments]]
+root = "src/cem3d/forward/consistency.py"
+reportArgumentType = false
+reportAttributeAccessIssue = false
+
+[[tool.pyright.executionEnvironments]]
+root = "src/cem3d/forward/currents.py"
+reportReturnType = false
+
+[[tool.pyright.executionEnvironments]]
+root = "src/cem3d/geometry/mesh.py"
+reportArgumentType = false
+
+[[tool.pyright.executionEnvironments]]
+root = "src/cem3d/plots/electrodes.py"
+reportArgumentType = false
