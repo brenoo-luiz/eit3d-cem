@@ -39,8 +39,8 @@ def _shifted(triangles: np.ndarray) -> np.ndarray:
 def render_layout(data: MeshData, radius: float, height: float, path: Path) -> Path:
     with plt.rc_context(STYLE):
         fig = plt.figure(figsize=(2 * COLUMN, 2.5))
-        top = fig.add_axes([0.0, 0.0, 0.26, 1.0])
-        side = fig.add_axes([0.33, 0.12, 0.67, 0.78])
+        top = fig.add_axes((0.0, 0.0, 0.26, 1.0))
+        side = fig.add_axes((0.33, 0.12, 0.67, 0.78))
         _top_view(top, data.layout, radius)
         _side_view(side, data, height)
         return save(fig, path)

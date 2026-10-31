@@ -42,3 +42,14 @@ def test_mesh_facet_tags_are_never_none(type_errors):
 
 def test_row_colors_come_from_a_color_sequence(type_errors):
     assert errors_in(type_errors, "plots/consistency.py", '"colors"') == []
+
+
+@pytest.mark.parametrize(
+    "module", ["plots/consistency.py", "plots/electrodes.py", "plots/forward.py"]
+)
+def test_style_is_accepted_by_rc_context(type_errors, module):
+    assert errors_in(type_errors, module, 'parameter "rc"') == []
+
+
+def test_axes_rectangles_are_tuples(type_errors):
+    assert errors_in(type_errors, "plots/electrodes.py", '"add_axes"') == []

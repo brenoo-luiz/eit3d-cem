@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import matplotlib
+from matplotlib.typing import RcKeyType
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -13,7 +15,7 @@ GRID = "#e3e3e3"
 PALETTE = ("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd")
 COLUMN = 4.8
 
-STYLE = {
+STYLE: dict[RcKeyType, Any] = {
     "font.family": "serif",
     "font.serif": ["Latin Modern Roman", "CMU Serif", "STIXGeneral"],
     "mathtext.fontset": "cm",
