@@ -71,6 +71,16 @@ def test_values_are_stored_as_float():
     assert isinstance(two.top_margin, float)
 
 
+def test_margins_of_several_rows():
+    two = ElectrodeConfig(rows=TWO_ROWS, top_margin=1, bottom_margin=0.5)
+    assert two.margins() == (1.0, 0.5)
+
+
+def test_single_row_has_no_margins():
+    with pytest.raises(ValueError):
+        ElectrodeConfig().margins()
+
+
 def test_invalid_row_config():
     with pytest.raises(ValueError):
         RowConfig(count=1)

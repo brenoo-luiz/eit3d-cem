@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -17,7 +18,7 @@ SPAN = 0.8
 
 
 def _row_colors(count: int) -> list:
-    palette = plt.get_cmap("tab20").colors
+    palette = matplotlib.color_sequences["tab20"]
     return [palette[i % len(palette)] for i in range(count)]
 
 

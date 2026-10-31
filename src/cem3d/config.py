@@ -57,21 +57,27 @@ class ElectrodeConfig:
         self._check_margins()
 
     def _check_margins(self) -> None:
-        margins = (self.top_margin, self.bottom_margin)
         if len(self.rows) == 1:
-            if margins != (None, None):
+            if (self.top_margin, self.bottom_margin) != (None, None):
                 raise ValueError("a single row is centered: do not set the margins")
             return
-        if None in margins:
+        if self.top_margin is None or self.bottom_margin is None:
             raise ValueError("several rows need top_margin and bottom_margin")
-        for name in ("top_margin", "bottom_margin"):
-            object.__setattr__(self, name, float(getattr(self, name)))
-        if min(self.top_margin, self.bottom_margin) <= 0:
+        top, bottom = float(self.top_margin), float(self.bottom_margin)
+        object.__setattr__(self, "top_margin", top)
+        object.__setattr__(self, "bottom_margin", bottom)
+        if min(top, bottom) <= 0:
             raise ValueError("the margins must be positive")
 
     @property
     def count(self) -> int:
         return sum(row.count for row in self.rows)
+
+    def margins(self) -> tuple[float, float]:
+        """Top and bottom margins of a setup with several rows."""
+        if self.top_margin is None or self.bottom_margin is None:
+            raise ValueError("a single row is centered and has no margins")
+        return self.top_margin, self.bottom_margin
 
     def width(self, radius: float) -> float:
         """Arc length of every electrode."""

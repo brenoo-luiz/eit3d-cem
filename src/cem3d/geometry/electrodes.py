@@ -138,7 +138,7 @@ class ElectrodeLayout:
             self._top_margin = self._bottom_margin = (m.height - height) / 2
             self._row_gap = 0.0
         else:
-            self._top_margin, self._bottom_margin = e.top_margin, e.bottom_margin
+            self._top_margin, self._bottom_margin = e.margins()
             free = m.height - self._top_margin - self._bottom_margin - n * height
             self._row_gap = free / (n - 1)
         self._rows = self._build(config, e.width(m.radius) / m.radius, height)

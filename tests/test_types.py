@@ -1,0 +1,44 @@
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+PACKAGE = ROOT / "src" / "cem3d"
+
+
+@pytest.fixture(scope="module")
+def type_errors() -> list[dict]:
+    pytest.importorskip("pyright")
+    command = [sys.executable, "-m", "pyright", "--outputjson"]
+    command += ["--pythonpath", sys.executable, "src"]
+    # pyright exits non-zero when it finds errors, which the tests report themselves
+    result = subprocess.run(
+        command, check=False, cwd=ROOT, capture_output=True, text=True
+    )
+    report = json.loads(result.stdout)
+    return [d for d in report["generalDiagnostics"] if d["severity"] == "error"]
+
+
+def errors_in(type_errors: list[dict], module: str, needle: str = "") -> list[str]:
+    path = str(PACKAGE / module)
+    return [
+        f"{module}:{d['range']['start']['line'] + 1}: {d['message']}"
+        for d in type_errors
+        if d["file"] == path and needle in d["message"]
+    ]
+
+
+@pytest.mark.parametrize("module", ["config.py", "geometry/electrodes.py"])
+def test_margins_are_never_none(type_errors, module):
+    assert errors_in(type_errors, module) == []
+
+
+def test_mesh_facet_tags_are_never_none(type_errors):
+    assert errors_in(type_errors, "geometry/mesh.py", "MeshTags | None") == []
+
+
+def test_row_colors_come_from_a_color_sequence(type_errors):
+    assert errors_in(type_errors, "plots/consistency.py", '"colors"') == []

@@ -1,5 +1,8 @@
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
+from dolfinx.io import gmsh as gmshio
 
 from cem3d.config import (
     BOTTOM_TAG,
@@ -67,6 +70,13 @@ def test_mesh_is_cached(mesh_config, tmp_path):
     assert facet_area(again, electrode_tag(1)) == pytest.approx(
         again.layout[1].area(1.0), rel=1e-2
     )
+
+
+def test_mesh_without_facet_tags_is_rejected(mesh_config, tmp_path, monkeypatch):
+    untagged = SimpleNamespace(mesh=None, facet_tags=None)
+    monkeypatch.setattr(gmshio, "model_to_mesh", lambda *args, **kwargs: untagged)
+    with pytest.raises(RuntimeError):
+        CylinderWithElectrodes(mesh_config, cache_dir=tmp_path).get()
 
 
 @pytest.fixture(scope="module")

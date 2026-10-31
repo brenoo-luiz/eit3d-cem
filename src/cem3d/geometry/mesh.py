@@ -81,6 +81,8 @@ class CylinderWithElectrodes:
             data = gmshio.model_to_mesh(gmsh.model, self._comm, 0, gdim=3)
         finally:
             gmsh.finalize()
+        if data.facet_tags is None:
+            raise RuntimeError("the gmsh model has no tagged facets")
         return data.mesh, data.facet_tags
 
     def _build_geometry(self) -> None:
