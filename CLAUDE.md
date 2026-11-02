@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Guidance for Claude Code in this repository. Talk to the user in Portuguese; code, comments and commit messages are in English.
+Guidance for Claude Code in this repository. Talk to the user in Portuguese; code and commit messages are in English.
 
 The user's personal standards in `~/.claude/CLAUDE.md` also apply. Topic guides live in `~/.claude/padroes/` (style, OOP, design patterns, project structure, data structures and algorithms, AI, testing, UML, git, figures, references): read the relevant one before a task on that topic. This file takes precedence on conflicts.
 
@@ -67,7 +67,7 @@ Pipeline: `config` → `geometry` (layout + mesh) → `fields` (γ) → `forward
 
 - Object-oriented design and patterns where they help; keep complexity low and the structure professional.
 - No alignment with extra spaces (`x = 1`, never `x    = 1`); ruff rules E, F, W, B, C4, UP, I with 88 columns; `from __future__ import annotations`, builtin generics, `strict=True` on `zip`.
-- Comments are short and only where they add something; no long docstrings.
+- No comments in the code: Claude explains how the code works in the conversation instead. Only tool directives (`# type: ignore`, `# noqa`) are allowed. No long docstrings.
 - No unused code: when replacing something, remove the old version and whatever became unused (the user checks with vulture).
 - Every feature and every bug fix comes with a test, so that fixed errors cannot come back. Check that a new test fails on the old code.
 - Step reports are minimal and professional: no emojis or symbols such as ✓/✗, only value, ideal and situation (`correto`/`incorreto`), no tolerance text. Every step saves its report to `outputs/stepN.txt`.
