@@ -14,7 +14,6 @@ def type_errors() -> list[dict]:
     pytest.importorskip("pyright")
     command = [sys.executable, "-m", "pyright", "--outputjson"]
     command += ["--pythonpath", sys.executable, "src"]
-    # pyright exits non-zero when it finds errors, which the tests report themselves
     result = subprocess.run(
         command, check=False, cwd=ROOT, capture_output=True, text=True
     )

@@ -16,7 +16,6 @@ def horizontal_slice(
     tree = dolfinx.geometry.bb_tree(mesh, mesh.topology.dim)
     candidates = dolfinx.geometry.compute_collisions_points(tree, points)
     colliding = dolfinx.geometry.compute_colliding_cells(mesh, candidates, points)
-    # The faceted boundary lies inside the circle, so some points hit no cell.
     links = [colliding.links(i) for i in range(len(points))]
     found = np.array([len(cell) > 0 for cell in links])
     cells = np.array([cell[0] for cell in links if len(cell)], dtype=np.int32)
