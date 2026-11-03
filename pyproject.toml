@@ -42,6 +42,11 @@ reportArgumentType = false
 reportAttributeAccessIssue = false
 
 [[tool.pyright.executionEnvironments]]
+root = "src/cem3d/forward/derivative.py"
+reportArgumentType = false
+reportAttributeAccessIssue = false
+
+[[tool.pyright.executionEnvironments]]
 root = "src/cem3d/forward/currents.py"
 reportReturnType = false
 

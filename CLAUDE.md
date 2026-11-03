@@ -25,7 +25,14 @@ Electrode parameters asked by the supervisor (email of Oct 2026), with the choic
 - Electrodes are numbered row after row; currents are adjacent within each row (provisional until the measurement protocols).
 - The relative error of U − U* in step 3 is acceptable for now; refine at the electrode edges only if it grows.
 
-Next tasks, in order: measurement protocols (how currents are injected and voltages collected), then the derivative of the forward operator (book section 3.2.2), then the inverse problem.
+Derivative of the forward operator (supervisor's handwritten sheet, Nov 2026), with the choices made where the sheet was open:
+
+- F'(γ)η = W solves (2.10): ∫γ∇w·∇v + Σ (1/z_j) ∫_{e_j} (w − W_j)(v − V_j) = −∫η∇u·∇v, with ΣW = 0, one solve per current.
+- The sheet first works with one current I (F_I: γ ↦ U ∈ R^L), then with l currents for the Jacobian; the code and the commits follow that order.
+- η = 1 in the cylinder and 2 in two spheres (centers and radius in `DirectionConfig` are a choice), evaluated at the cell midpoints like γ, so η̄ ∈ R^M holds only 1 and 2.
+- Consistency test for one current I = I(1) = (1, −1, 0, …): a_k = |(F_I(γ + t_k η) − F_I(γ))/t_k − W| / |W| with t_k = 0.5^k, k = 1..50 (t_50 ≈ 9e-16, the last step that γ + t_k η still resolves in double precision). Plotted against k, a_k makes a U, as the supervisor expects: it falls as O(t_k) while the linearization error dominates (checked as order 1 for k = 5..15), reaches its minimum near k ≈ 22, and rises as O(1/t_k) once the solver and rounding errors in F(γ + t_k η) − F(γ) dominate.
+
+Next tasks, in order: the Jacobian with l = 8 currents and its test (J η̄ against F'(γ)η), then measurement protocols (how currents are injected and voltages collected), then the inverse problem.
 
 ## Environment and commands
 
@@ -38,6 +45,7 @@ git config core.hooksPath .githooks
 python main.py electrodes [--force]
 python main.py forward [--force]
 python main.py consistency [--force]
+python main.py derivative [--force]
 python main.py electrodes --config configs/three_rows.toml   # outputs/three_rows/
 
 pytest -q
@@ -51,16 +59,17 @@ pytest tests/test_cem.py::test_name
 
 ## Architecture
 
-Pipeline: `config` → `geometry` (layout + mesh) → `fields` (γ) → `forward` (CEM solve and checks) → `plots`, run by `steps`.
+Pipeline: `config` → `geometry` (layout + mesh) → `fields` (γ and η) → `forward` (CEM solve, derivative and checks) → `plots`, run by `steps`.
 
 - `cli.py`: `STEPS` maps a name to `Step(output, run)`; `main` saves everything printed to `outputs/<output>.txt` (or `outputs/<config name>/` with `--config`); `load_setup` reads the TOML setup. A new step is `steps/<name>.py` with `run(config=None, ..., force=False, cache_dir=CACHE_DIR, outputs=OUTPUTS_DIR) -> bool` plus an entry in `STEPS` (`stepN`).
 - `config.py`: frozen dataclasses validated in `__post_init__`, and the gmsh tags: top 1, bottom 2, gap 3, volume 10, electrode j = `electrode_tag(j) = 100 + j`.
 - `geometry/electrodes.py`: `ElectrodeLayout` is the only source of electrode positions: it stacks `ElectrodeRow`s of equal electrodes between the top and bottom margins with equal gaps between rows, indexes electrodes 1-based across rows, and gives `locate(theta, z)` and the `seam` angle.
 - `geometry/mesh.py`: OCC cylinder fragmented by wedges, seam rotated to the gap center farthest from every row (staggered rows may share no gap, then the seam cuts an electrode), surfaces tagged by center of mass, refinement only on the true border of each electrode. Meshes are cached by a hash of the config; bump `_SCHEMA` whenever mesh generation changes.
-- `forward/cem.py`: `CEMForward` solves A w_j = c_j once per electrode (CG + BoomerAMG) and builds the Schur complement; `solve(currents)` is a dense solve with ΣU = 0 through a Lagrange multiplier; `potential(U) = Σ U_j w_j`.
+- `forward/cem.py`: `CEMForward` keeps the CG + BoomerAMG solver of A, solves A w_j = c_j once per electrode and builds the Schur complement; `solve(currents)` is a dense solve with ΣU = 0 through a Lagrange multiplier; `potential(U) = Σ U_j w_j`; `solve_source(b)` solves the CEM system with an interior load b (one more CG solve, then the Schur system); `with_conductivity(γ)` builds a new forward on the same mesh.
+- `forward/derivative.py`: `CEMDerivative(forward, currents)` for a DG0 γ: `directional(η)` solves (2.10) for each current, `difference_quotient(η, t)` gives (F(γ + tη) − F(γ))/t.
 - `forward/checks.py`: checks of step 2 (currents, ΣU, reciprocity, antisymmetry and circulant structure for γ ≡ 1, which apply only to a single row, extremes on the driving electrodes).
 - `forward/consistency.py`: `ConsistencyTests`, the four tests of book section 3.2.1, with the flux from the gradient (as in the book) and the consistent flux from the weak form.
-- `utils/report.py`: report helpers (`title`, `section`, `info`, `check`, `matrix`, `result`, `files`). `check` prints `correto`/`incorreto`; step tests assert `incorreto` never appears.
+- `utils/report.py`: report helpers (`title`, `section`, `info`, `check`, `matrix`, `table`, `result`, `files`). `check` prints `correto`/`incorreto`; step tests assert `incorreto` never appears.
 - `plots/paper.py`: shared academic figure style (`STYLE`, `PALETTE`, `COLUMN`, `frame`, `save`).
 
 ## Code standards

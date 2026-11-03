@@ -5,6 +5,7 @@ import pytest
 from cem3d.config import (
     ELECTRODE_TAG0,
     CEMConfig,
+    DirectionConfig,
     ElectrodeConfig,
     InclusionConfig,
     MeshConfig,
@@ -158,3 +159,22 @@ def test_invalid_cem_config(kwargs):
 def test_invalid_inclusion(kwargs):
     with pytest.raises(ValueError):
         InclusionConfig(**kwargs)
+
+
+def test_default_direction_has_two_spheres_with_values_one_and_two():
+    direction = DirectionConfig()
+    assert len(direction.centers) == 2
+    assert (direction.outside, direction.inside) == (1.0, 2.0)
+
+
+def test_direction_centers_given_as_lists_are_stored_as_tuples():
+    direction = DirectionConfig(centers=[[0, 0, 0]])
+    assert direction.centers == ((0.0, 0.0, 0.0),)
+
+
+@pytest.mark.parametrize(
+    "kwargs", [{"radius": 0}, {"centers": ()}, {"centers": ((0.0, 0.0),)}]
+)
+def test_invalid_direction(kwargs):
+    with pytest.raises(ValueError):
+        DirectionConfig(**kwargs)

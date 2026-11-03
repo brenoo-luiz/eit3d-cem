@@ -148,3 +148,22 @@ class InclusionConfig:
             raise ValueError("radius must be positive")
         if self.inside <= 0 or self.outside <= 0:
             raise ValueError("conductivity must be positive")
+
+
+@dataclass(frozen=True)
+class DirectionConfig:
+    centers: tuple[tuple[float, float, float], ...] = (
+        (0.4, 0.3, 0.4),
+        (-0.3, 0.4, -0.4),
+    )
+    radius: float = 0.25
+    inside: float = 2.0
+    outside: float = 1.0
+
+    def __post_init__(self) -> None:
+        centers = tuple(tuple(float(x) for x in center) for center in self.centers)
+        object.__setattr__(self, "centers", centers)
+        if not centers or any(len(center) != 3 for center in centers):
+            raise ValueError("need at least one center with three coordinates")
+        if self.radius <= 0:
+            raise ValueError("radius must be positive")

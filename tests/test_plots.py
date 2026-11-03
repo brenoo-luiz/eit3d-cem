@@ -4,9 +4,17 @@ import numpy as np
 
 from cem3d.config import InclusionConfig
 from cem3d.plots.consistency import render_boundary, render_contact, render_matrix
+from cem3d.plots.derivative import render_convergence
 from cem3d.plots.electrodes import render_layout
 from cem3d.plots.forward import render_potential
 from cem3d.plots.paper import STYLE, frame, save
+
+
+def test_convergence_figure(tmp_path):
+    steps = 0.5 ** np.arange(1, 51)
+    errors = steps + 1e-14 / steps
+    path = render_convergence(steps, errors, tmp_path / "convergence.png")
+    assert path.exists() and path.stat().st_size > 0
 
 
 def test_save_creates_folder_and_file(tmp_path):

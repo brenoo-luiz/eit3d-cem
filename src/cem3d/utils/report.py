@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager, redirect_stdout
 from pathlib import Path
 from typing import TextIO
@@ -81,6 +81,16 @@ def matrix(values: np.ndarray, row: str, column: str, fmt: str = ".4f") -> None:
     for i, line in enumerate(values, start=1):
         cells = "".join(f"{v:>{width}{fmt}}" for v in line)
         print(f"  {f'{row}{i}':<6}{cells}")
+
+
+def table(headers: Sequence[str], rows: Iterable[Sequence[str]]) -> None:
+    rows = list(rows)
+    widths = [
+        max(len(text) for text in column) + 2
+        for column in zip(headers, *rows, strict=True)
+    ]
+    for line in [headers, *rows]:
+        print("  " + "".join(f"{t:>{w}}" for t, w in zip(line, widths, strict=True)))
 
 
 def mesh(data) -> None:

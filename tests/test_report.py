@@ -28,6 +28,17 @@ def test_matrix_prints_labels_and_values(capsys):
     assert lines[2].split() == ["I2", "0.2500", "-0.2500"]
 
 
+def test_table_aligns_columns_to_the_right(capsys):
+    report.table(["k", "a_k"], [["1", "3.0e-01"], ["10", "9.7e-04"]])
+    lines = capsys.readouterr().out.splitlines()
+    assert [line.split() for line in lines] == [
+        ["k", "a_k"],
+        ["1", "3.0e-01"],
+        ["10", "9.7e-04"],
+    ]
+    assert len({len(line) for line in lines}) == 1
+
+
 def test_thousands_separator():
     assert report._thousands(116399) == "116.399"
 

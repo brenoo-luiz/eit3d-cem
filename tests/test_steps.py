@@ -7,7 +7,7 @@ from cem3d import cli
 from cem3d.cli import STEPS, build_parser, load_setup
 from cem3d.config import ROOT_DIR, RowConfig, SetupConfig
 from cem3d.geometry.electrodes import ElectrodeLayout
-from cem3d.steps import consistency, electrodes, forward
+from cem3d.steps import consistency, derivative, electrodes, forward
 from cem3d.steps.electrodes import _first_start
 
 CONFIGS = sorted((ROOT_DIR / "configs").glob("*.toml"))
@@ -24,7 +24,7 @@ def test_parser_rejects_unknown_step():
 
 
 def test_every_step_is_registered():
-    assert {"electrodes", "forward", "consistency"} <= set(STEPS)
+    assert {"electrodes", "forward", "consistency", "derivative"} <= set(STEPS)
 
 
 def test_step_outputs_are_unique():
@@ -127,6 +127,18 @@ def test_consistency_step_passes_all_checks(mesh_config, tmp_path, capsys):
     assert "incorreto" not in capsys.readouterr().out
 
 
+def test_derivative_step_passes_all_checks(mesh_config, tmp_path, capsys):
+    pytest.importorskip("dolfinx")
+    ok = derivative.run(
+        mesh_config, cache_dir=tmp_path / "cache", outputs=tmp_path / "out"
+    )
+    assert ok
+    assert (tmp_path / "out" / "step4_convergence.png").exists()
+    out = capsys.readouterr().out
+    assert "incorreto" not in out
+    assert "I(1) = (1, -1, 0, ..., 0)" in out
+
+
 @pytest.fixture(scope="module", params=CONFIGS, ids=lambda p: Path(p).stem)
 def rows_case(request, tmp_path_factory):
     config = load_setup(request.param)
@@ -134,7 +146,7 @@ def rows_case(request, tmp_path_factory):
     return dataclasses.replace(config, mesh=coarse), tmp_path_factory.mktemp("cache")
 
 
-@pytest.mark.parametrize("step", [electrodes, forward, consistency])
+@pytest.mark.parametrize("step", [electrodes, forward, consistency, derivative])
 def test_steps_pass_with_several_rows(step, rows_case, tmp_path, capsys):
     pytest.importorskip("dolfinx")
     config, cache = rows_case

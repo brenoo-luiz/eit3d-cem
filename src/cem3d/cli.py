@@ -13,7 +13,7 @@ from cem3d.config import (
     RowConfig,
     SetupConfig,
 )
-from cem3d.steps import consistency, electrodes, forward
+from cem3d.steps import consistency, derivative, electrodes, forward
 from cem3d.utils import report
 
 
@@ -27,6 +27,7 @@ STEPS: dict[str, Step] = {
     "electrodes": Step("step1", electrodes.run),
     "forward": Step("step2", forward.run),
     "consistency": Step("step3", consistency.run),
+    "derivative": Step("step4", derivative.run),
 }
 
 
