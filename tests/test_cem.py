@@ -41,7 +41,7 @@ def solution(forward):
     return forward.solve(adjacent_pattern(16))
 
 
-def monolithic_voltages(data, gamma, z, currents):
+def monolithic_solve(data, gamma, z, currents, source=None):
     V = dolfinx.fem.functionspace(data.mesh, ("Lagrange", 1))
     u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
     ds = boundary_measure(data)
@@ -70,16 +70,51 @@ def monolithic_voltages(data, gamma, z, currents):
         ],
         format="csc",
     )
+    N = A.shape[0]
     rhs = np.zeros((K.shape[0], len(currents)))
-    rhs[A.shape[0] : A.shape[0] + n] = currents.T
+    rhs[N : N + n] = currents.T
+    if source is not None:
+        rhs[:N] = source[:, None]
     x = spla.splu(K).solve(rhs)
-    return x[A.shape[0] : A.shape[0] + n].T
+    return x[:N].T, x[N : N + n].T
 
 
 def test_matches_monolithic_solve(mesh_data, gamma, solution):
     currents = adjacent_pattern(16, 3)
-    expected = monolithic_voltages(mesh_data, gamma, 1e-3, currents)
+    _, expected = monolithic_solve(mesh_data, gamma, 1e-3, currents)
     assert np.allclose(solution.voltages[:3], expected, rtol=1e-6, atol=1e-8)
+
+
+def test_potential_matches_monolithic_solve(mesh_data, gamma, forward, solution):
+    currents = adjacent_pattern(16, 3)
+    expected, _ = monolithic_solve(mesh_data, gamma, 1e-3, currents)
+    for voltages, u in zip(solution.voltages[:3], expected, strict=True):
+        assert np.allclose(forward.potential(voltages).x.array, u, rtol=1e-6, atol=1e-8)
+
+
+def test_solve_source_matches_monolithic_solve(mesh_data, gamma, forward):
+    V = forward.function_space
+    f = dolfinx.fem.Function(V)
+    f.interpolate(lambda x: x[0] * x[1] - 0.5 * x[2])
+    v = ufl.TestFunction(V)
+    source = dolfinx.fem.petsc.assemble_vector(
+        dolfinx.fem.form(ufl.inner(ufl.grad(f), ufl.grad(v)) * ufl.dx)
+    )
+    omega, voltages = forward.solve_source(source)
+    potential, expected = monolithic_solve(
+        mesh_data, gamma, 1e-3, np.zeros((1, 16)), source=source.array
+    )
+    assert np.allclose(voltages, expected[0], rtol=1e-6, atol=1e-10)
+    assert np.allclose(omega.x.array, potential[0], rtol=1e-6, atol=1e-8)
+    assert abs(voltages.sum()) < 1e-12
+
+
+def test_with_conductivity_keeps_mesh_and_contact(mesh_data, forward):
+    doubled = constant_conductivity(mesh_data.mesh, 2.0)
+    other = forward.with_conductivity(doubled)
+    assert other.conductivity is doubled
+    assert np.allclose(other.areas, forward.areas)
+    assert np.allclose(other.impedances, forward.impedances)
 
 
 def test_injected_currents_match(forward, mesh_data, solution):
