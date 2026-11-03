@@ -80,18 +80,18 @@ class CEMForward:
             raise ValueError(f"each current pattern needs {self._count} values")
         if np.any(np.abs(currents.sum(axis=1)) > 1e-12 * np.abs(currents).max()):
             raise ValueError("each current pattern must sum to zero")
-        return CEMSolution(currents, self._voltages(currents))
+        return CEMSolution(currents, self.solve_schur(currents))
 
     def solve_source(
         self, source: PETSc.Vec
     ) -> tuple[dolfinx.fem.Function, np.ndarray]:
         omega = self._solve_interior(source)
         coupling = np.array([[c.dot(omega.x.petsc_vec) for c in self._loads]])
-        voltages = self._voltages(coupling)[0]
+        voltages = self.solve_schur(coupling)[0]
         omega.x.array[:] += self.potential(voltages).x.array
         return omega, voltages
 
-    def _voltages(self, rhs: np.ndarray) -> np.ndarray:
+    def solve_schur(self, rhs: np.ndarray) -> np.ndarray:
         n = self._count
         K = np.zeros((n + 1, n + 1))
         K[:n, :n] = self._schur

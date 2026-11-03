@@ -21,11 +21,16 @@ class CEMDerivative:
         self._voltages = solution.voltages
         V = forward.function_space
         Q = dolfinx.fem.functionspace(V.mesh, ("DG", 0))
+        self._cells = Q.dofmap.index_map.size_local
         self._u = dolfinx.fem.Function(V)
+        self._w = dolfinx.fem.Function(V)
         self._eta = dolfinx.fem.Function(Q)
         grad_u = ufl.grad(self._u)
         self._weighted_energy = dolfinx.fem.form(
             self._eta * ufl.inner(grad_u, ufl.grad(ufl.TestFunction(V))) * ufl.dx
+        )
+        self._cell_energies = dolfinx.fem.form(
+            ufl.inner(grad_u, ufl.grad(self._w)) * ufl.TestFunction(Q) * ufl.dx
         )
 
     @property
@@ -49,3 +54,16 @@ class CEMDerivative:
         perturbed.x.array[:] = self._gamma.x.array + step * eta.x.array
         shifted = self._forward.with_conductivity(perturbed)
         return (shifted.solve(self._currents).voltages - self._voltages) / step
+
+    def jacobian(self) -> np.ndarray:
+        return np.vstack([self._along_every_element(v) for v in self._voltages])
+
+    def _along_every_element(self, voltages: np.ndarray) -> np.ndarray:
+        self._u.x.array[:] = self._forward.potential(voltages).x.array
+        count = len(voltages)
+        coupling = np.empty((self._cells, count))
+        for m, unit in enumerate(np.eye(count)):
+            self._w.x.array[:] = self._forward.potential(unit).x.array
+            energies = dolfinx.fem.assemble_vector(self._cell_energies).array
+            coupling[:, m] = -energies[: self._cells]
+        return self._forward.solve_schur(coupling).T

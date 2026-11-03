@@ -133,10 +133,11 @@ def test_derivative_step_passes_all_checks(mesh_config, tmp_path, capsys):
         mesh_config, cache_dir=tmp_path / "cache", outputs=tmp_path / "out"
     )
     assert ok
-    assert (tmp_path / "out" / "step4_convergence.png").exists()
+    for name in ("convergence", "derivative"):
+        assert (tmp_path / "out" / f"step4_{name}.png").exists()
     out = capsys.readouterr().out
     assert "incorreto" not in out
-    assert "I(1) = (1, -1, 0, ..., 0)" in out
+    assert "I(1) = (1, -1, 0, ..., 0)" in out and "8 correntes" in out
 
 
 @pytest.fixture(scope="module", params=CONFIGS, ids=lambda p: Path(p).stem)

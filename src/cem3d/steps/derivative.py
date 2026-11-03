@@ -17,9 +17,11 @@ from cem3d.forward.cem import CEMForward
 from cem3d.forward.currents import adjacent_by_row
 from cem3d.forward.derivative import CEMDerivative
 from cem3d.geometry.mesh import CylinderWithElectrodes, cache_path
+from cem3d.plots.consistency import render_matrix
 from cem3d.plots.derivative import render_convergence
 from cem3d.utils import report
 
+EXPERIMENTS = 8
 REFINEMENTS = 50
 HALVING = 0.5
 ORDER_FIRST = 5
@@ -62,7 +64,7 @@ def run(
     inclusion = inclusion or InclusionConfig()
     direction = direction or DirectionConfig()
     currents = adjacent_by_row([row.count for row in config.electrodes.rows])
-    currents = currents[:1]
+    currents = currents[:EXPERIMENTS]
 
     report.title("DERIVADA DO OPERADOR DIRETO  (equação 2.10 e seção 3.2.2 do livro)")
     report.info("Impedância de contato", f"z = {cem.impedance:g} em todos os eletrodos")
@@ -79,6 +81,7 @@ def run(
     )
     report.info("Teste a_k", "corrente I(1) = (1, -1, 0, ..., 0)")
     report.info("Passos", f"t_k = {HALVING:g}^k, k = 1, ..., {REFINEMENTS}")
+    report.info("Jacobiana", f"{len(currents)} correntes adjacentes I(1), ..., I(l)")
 
     report.section("Malha")
     if force or not cache_path(config, cache_dir).exists():
@@ -108,9 +111,19 @@ def run(
     )
     report.table(["k", "t_k", "a_k", "a_(k-1)/a_k"], _convergence_rows(steps, errors))
 
+    jacobian = derivative.jacobian()
+    by_jacobian = (jacobian @ eta.x.array).reshape(variational.shape)
+    report.section(f"Jacobiana com {len(currents)} correntes")
+    report.info("J", f"{jacobian.shape[0]} x {jacobian.shape[1]}  ((L·l) x M)")
+    report.section("F'(γ)η pela equação (2.10)  (linha i: corrente I(i))")
+    report.matrix(variational, row="I", column="e", fmt=".2e")
+
     total = float(np.abs(single.sum()))
     order = _descent_order(steps, errors)
     best = int(np.argmin(errors))
+    mismatch = float(
+        np.linalg.norm(by_jacobian - variational) / np.linalg.norm(variational)
+    )
     report.section("Verificações")
     ok = all(
         [
@@ -128,14 +141,27 @@ def run(
                 errors[best] < TOL_SMALLEST,
                 ideal="~0",
             ),
+            report.check(
+                "J η - F'(γ)η (relativo)", mismatch, mismatch < TOL_ZERO, ideal="~0"
+            ),
         ]
     )
     report.info("Menor a_k em", f"k = {best + 1}, t_k = {steps[best]:.2e}")
 
-    paths = [render_convergence(steps, errors, outputs / "step4_convergence.png")]
+    paths = [
+        render_convergence(steps, errors, outputs / "step4_convergence.png"),
+        render_matrix(
+            [
+                (variational, r"$F'(\gamma)\eta$"),
+                (by_jacobian, r"$J\bar{\eta}$"),
+                (by_jacobian - variational, r"$J\bar{\eta} - F'(\gamma)\eta$"),
+            ],
+            outputs / "step4_derivative.png",
+        ),
+    ]
     report.result(
         ok,
-        "a derivada passa no teste de consistência",
+        "a derivada e a Jacobiana passam nos testes de consistência",
         "há verificações incorretas",
     )
     report.files(paths)

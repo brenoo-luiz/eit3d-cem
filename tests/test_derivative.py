@@ -32,6 +32,11 @@ def variational(derivative, eta):
     return derivative.directional(eta)
 
 
+@pytest.fixture(scope="module")
+def jacobian(derivative):
+    return derivative.jacobian()
+
+
 def test_derivative_has_one_row_per_current(variational):
     assert variational.shape == (EXPERIMENTS, 16)
 
@@ -51,6 +56,32 @@ def test_power_of_the_derivative_is_minus_the_weighted_energy(
             dolfinx.fem.form(eta * ufl.inner(ufl.grad(u), ufl.grad(u)) * ufl.dx)
         )
         assert currents @ W == pytest.approx(-energy, rel=1e-8)
+
+
+def test_jacobian_has_one_column_per_cell(jacobian, eta):
+    assert jacobian.shape == (EXPERIMENTS * 16, eta.x.array.size)
+
+
+def test_jacobian_times_direction_matches_the_variational_derivative(
+    jacobian, eta, variational
+):
+    assert np.allclose(
+        jacobian @ eta.x.array,
+        variational.ravel(),
+        rtol=1e-8,
+        atol=1e-10 * np.abs(variational).max(),
+    )
+
+
+def test_jacobian_column_is_the_derivative_along_the_cell(derivative, jacobian, eta):
+    cells = [0, eta.x.array.size // 2, eta.x.array.size - 1]
+    for cell in cells:
+        indicator = dolfinx.fem.Function(eta.function_space)
+        indicator.x.array[cell] = 1.0
+        column = derivative.directional(indicator).ravel()
+        assert np.allclose(
+            jacobian[:, cell], column, rtol=1e-6, atol=1e-8 * np.abs(column).max()
+        )
 
 
 def test_difference_quotient_converges_at_first_order(derivative, eta, variational):
