@@ -1,4 +1,5 @@
 import dataclasses
+import math
 from pathlib import Path
 
 import pytest
@@ -58,6 +59,24 @@ def test_empty_setup_file_gives_the_default(tmp_path):
     path = tmp_path / "empty.toml"
     path.write_text("")
     assert load_setup(path) == SetupConfig()
+
+
+def test_setup_file_sets_the_number_of_currents(tmp_path):
+    path = tmp_path / "currents.toml"
+    path.write_text("experiments = 4\n")
+    assert load_setup(path).experiments == 4
+
+
+def test_two_rows_of_eight_setup_has_equal_rows_and_all_the_currents():
+    config = load_setup(ROOT_DIR / "configs" / "two_rows_8.toml")
+    first, second = config.electrodes.rows
+    assert first == second
+    assert first.count == 8
+    assert config.experiments == 16
+    layout = ElectrodeLayout(config)
+    assert layout.row_gap == pytest.approx(0.4)
+    assert layout[1].area(1.0) == pytest.approx(math.pi / 16)
+    assert layout[1].z_center == pytest.approx(-layout[9].z_center)
 
 
 def test_setup_file_sets_every_row(tmp_path):
@@ -133,11 +152,30 @@ def test_derivative_step_passes_all_checks(mesh_config, tmp_path, capsys):
         mesh_config, cache_dir=tmp_path / "cache", outputs=tmp_path / "out"
     )
     assert ok
-    for name in ("convergence", "derivative"):
+    for name in ("convergence", "convergence_all", "derivative"):
         assert (tmp_path / "out" / f"step4_{name}.png").exists()
     out = capsys.readouterr().out
     assert "incorreto" not in out
     assert "I(1) = (1, -1, 0, ..., 0)" in out and "8 correntes" in out
+    assert "Tempo só de J" in out
+    assert "T_k" in out
+    for name in ("esferas", "constante", "linear em z", "aleatória"):
+        assert f"η {name}" in out
+
+
+def test_derivative_step_uses_all_the_currents_of_the_two_rows(tmp_path, capsys):
+    pytest.importorskip("dolfinx")
+    config = load_setup(ROOT_DIR / "configs" / "two_rows_8.toml")
+    coarse = dataclasses.replace(config.mesh, size_max=0.25, size_min=0.08)
+    ok = derivative.run(
+        dataclasses.replace(config, mesh=coarse),
+        cache_dir=tmp_path / "cache",
+        outputs=tmp_path / "out",
+    )
+    assert ok
+    out = capsys.readouterr().out
+    assert "Jacobiana com 16 correntes" in out
+    assert "256 x" in out
 
 
 @pytest.fixture(scope="module", params=CONFIGS, ids=lambda p: Path(p).stem)

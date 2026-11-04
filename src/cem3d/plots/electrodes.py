@@ -15,6 +15,8 @@ from cem3d.plots.paper import COLUMN, FRAME, INK, PALETTE, STYLE, frame, save
 ELECTRODE_FILL = "#cfe0f1"
 EDGE = "#9a9a9a"
 RING_STEP = 0.16
+LABEL_RADIUS = 1.2
+LABEL_STEP = 0.14
 SHIFTS = (-360.0, 0.0, 360.0)
 
 
@@ -79,9 +81,10 @@ def _top_view(ax, layout: ElectrodeLayout, radius: float) -> None:
             )
         for e in electrodes if single else electrodes[:1]:
             c = e.theta_center
+            label = radius * (LABEL_RADIUS + LABEL_STEP * (row.number - 1))
             ax.text(
-                1.2 * radius * np.cos(c),
-                1.2 * radius * np.sin(c),
+                label * np.cos(c),
+                label * np.sin(c),
                 f"$e_{{{e.index}}}$",
                 ha="center",
                 va="center",

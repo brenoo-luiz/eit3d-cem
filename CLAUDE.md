@@ -33,6 +33,13 @@ Derivative of the forward operator (supervisor's handwritten sheet, Nov 2026), w
 - Consistency test for one current I = I(1) = (1, −1, 0, …): a_k = |(F_I(γ + t_k η) − F_I(γ))/t_k − W| / |W| with t_k = 0.5^k, k = 1..50 (t_50 ≈ 9e-16, the last step that γ + t_k η still resolves in double precision). Plotted against k, a_k makes a U, as the supervisor expects: it falls as O(t_k) while the linearization error dominates (checked as order 1 for k = 5..15), reaches its minimum near k ≈ 22, and rises as O(1/t_k) once the solver and rounding errors in F(γ + t_k η) − F(γ) dominate.
 - Jacobian with l = 8 currents, the first 8 adjacent patterns (choice; the book's section 3.2 uses the first L − 1): J ∈ R^{(L·l)×M}, block j, column k = F'_j(γ)χ_{T_k}, i.e. (2.10) solved with η = χ_{T_k} for every element and current (≈ M·l solves, as the supervisor said). Each solve is cheap: the right side lives on T_k, its coupling with the basis is g_m = −∫_{T_k} ∇u·∇w_m, and W solves the Schur system S W = g, with no extra CG. Test: J η̄ against F'(γ)η from (2.10) for the l currents.
 
+Final tests with two rows (supervisor's email, Nov 2026), with the choices made where the email was open:
+
+- Two rows of 8 electrodes, `configs/two_rows_8.toml`: aligned, both with θ = 1 rad and clockwise, coverage 50%, electrode height 0.5 and width π/8 (area π/16, the same as in the single row), margins 0.3, gap 0.4.
+- 16 adjacent currents: the 8 cyclic patterns of each row (`experiments = 16`). None of them drives current between the rows, and their rank is 14, not L − 1 = 15.
+- The tests of his items 3, 4 and 5 run in `python main.py derivative --config configs/two_rows_8.toml`: a_k for I(1) and for all the l currents together; 5 columns of J against (2.10), evenly spaced cell indices; J η̄ against F'(γ)η for η = two spheres, constant 1, z and random per cell (seed 0).
+- J is timed alone (`derivative.jacobian()`, no tests); the time before it (w_j, S and U) is reported apart.
+
 Next tasks, in order: measurement protocols (how currents are injected and voltages collected), then the inverse problem.
 
 ## Environment and commands
@@ -48,13 +55,14 @@ python main.py forward [--force]
 python main.py consistency [--force]
 python main.py derivative [--force]
 python main.py electrodes --config configs/three_rows.toml   # outputs/three_rows/
+python main.py derivative --config configs/two_rows_8.toml   # outputs/two_rows_8/
 
 pytest -q
 pytest tests/test_cem.py::test_name
 ```
 
 - `--force` regenerates the mesh instead of loading it from `cache/`. A step exits non-zero if any check fails.
-- `--config` reads a TOML setup (`[mesh]`, `[electrodes]`, `[[electrodes.rows]]`, see `configs/`); missing keys keep the defaults.
+- `--config` reads a TOML setup (`experiments`, `[mesh]`, `[electrodes]`, `[[electrodes.rows]]`, see `configs/`); missing keys keep the defaults. `experiments` is the number of adjacent currents of the derivative step (default 8) and is not part of the mesh cache key.
 - The pre-commit hook runs `pytest -q` and blocks the commit if a test fails.
 - Tests that need FEniCSx use `pytest.importorskip("dolfinx")`. Reuse the session fixtures `mesh_config` and `mesh_data` from `tests/conftest.py` (coarse mesh, `size_max=0.25`, `size_min=0.08`) instead of meshing inside a test.
 

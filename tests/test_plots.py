@@ -2,10 +2,12 @@ import dolfinx
 import matplotlib.pyplot as plt
 import numpy as np
 
-from cem3d.config import InclusionConfig
+from cem3d.cli import load_setup
+from cem3d.config import ROOT_DIR, InclusionConfig
+from cem3d.geometry.electrodes import ElectrodeLayout
 from cem3d.plots.consistency import render_boundary, render_contact, render_matrix
 from cem3d.plots.derivative import render_convergence
-from cem3d.plots.electrodes import render_layout
+from cem3d.plots.electrodes import _top_view, render_layout
 from cem3d.plots.forward import render_potential
 from cem3d.plots.paper import STYLE, frame, save
 
@@ -17,12 +19,35 @@ def test_convergence_figure(tmp_path):
     assert path.exists() and path.stat().st_size > 0
 
 
+def test_convergence_figure_with_every_current(tmp_path):
+    steps = 0.5 ** np.arange(1, 51)
+    errors = steps + 1e-14 / steps
+    path = render_convergence(
+        steps,
+        errors,
+        tmp_path / "convergence.png",
+        per_current=np.column_stack([errors, 2 * errors]),
+    )
+    assert path.exists() and path.stat().st_size > 0
+
+
 def test_save_creates_folder_and_file(tmp_path):
     with plt.rc_context(STYLE):
         fig, ax = plt.subplots()
         frame(ax)
         path = save(fig, tmp_path / "sub" / "fig.png")
     assert path.exists() and path.stat().st_size > 0
+
+
+def test_labels_of_aligned_rows_do_not_overlap_in_the_top_view():
+    layout = ElectrodeLayout(load_setup(ROOT_DIR / "configs" / "two_rows_8.toml"))
+    fig, ax = plt.subplots()
+    _top_view(ax, layout, 1.0)
+    first, second = (
+        np.array(text.get_position()) for text in ax.texts if text.get_text()
+    )
+    plt.close(fig)
+    assert np.linalg.norm(first - second) > 0.1
 
 
 def test_layout_figure(mesh_data, tmp_path):

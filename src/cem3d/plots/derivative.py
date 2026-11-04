@@ -9,16 +9,25 @@ from matplotlib.ticker import MaxNLocator
 from cem3d.plots.paper import COLUMN, PALETTE, STYLE, frame, save
 
 REFERENCE = "#7f7f7f"
+EACH_CURRENT = "#aec7e8"
 DASHED = (0, (4, 2))
 DOTTED = (0, (1, 2))
 
 
-def render_convergence(steps: np.ndarray, errors: np.ndarray, path: Path) -> Path:
+def render_convergence(
+    steps: np.ndarray,
+    errors: np.ndarray,
+    path: Path,
+    per_current: np.ndarray | None = None,
+) -> Path:
     k = np.arange(1, len(errors) + 1)
     best = int(np.argmin(errors))
     down, up = slice(0, best + 1), slice(best, None)
     with plt.rc_context(STYLE):
         fig, ax = plt.subplots(figsize=(COLUMN, 2.8))
+        if per_current is not None:
+            lines = ax.semilogy(k, per_current, color=EACH_CURRENT, linewidth=0.5)
+            lines[0].set_label("cada corrente")
         ax.semilogy(
             k, errors, color=PALETTE[0], marker="o", markersize=2.5, label=r"$a_k$"
         )
@@ -50,7 +59,10 @@ def render_convergence(steps: np.ndarray, errors: np.ndarray, path: Path) -> Pat
         ax.set_ylabel(r"$a_k$")
         ax.xaxis.set_major_locator(MaxNLocator(integer=True))
         ax.legend(
-            loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=3, borderaxespad=0
+            loc="lower center",
+            bbox_to_anchor=(0.5, 1.02),
+            ncol=len(ax.get_legend_handles_labels()[0]),
+            borderaxespad=0,
         )
         frame(ax)
         return save(fig, path)

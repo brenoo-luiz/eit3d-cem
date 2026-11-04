@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 import dolfinx
 import numpy as np
@@ -36,15 +36,33 @@ def sphere_direction(
     return eta
 
 
+def midpoint_direction(
+    mesh: dolfinx.mesh.Mesh, profile: Callable[[np.ndarray], np.ndarray]
+) -> dolfinx.fem.Function:
+    eta = constant_conductivity(mesh, 0.0)
+    eta.x.array[:] = profile(_midpoints(eta))
+    return eta
+
+
+def cell_indicator(mesh: dolfinx.mesh.Mesh, cell: int) -> dolfinx.fem.Function:
+    eta = constant_conductivity(mesh, 0.0)
+    eta.x.array[cell] = 1.0
+    return eta
+
+
+def _midpoints(field: dolfinx.fem.Function) -> np.ndarray:
+    mesh = field.function_space.mesh
+    cells = np.arange(field.x.array.size, dtype=np.int32)
+    return dolfinx.mesh.compute_midpoints(mesh, mesh.topology.dim, cells)
+
+
 def _cells_inside(
     field: dolfinx.fem.Function,
     centers: Sequence[tuple[float, float, float]],
     radius: float,
 ) -> np.ndarray:
-    mesh = field.function_space.mesh
-    cells = np.arange(field.x.array.size, dtype=np.int32)
-    midpoints = dolfinx.mesh.compute_midpoints(mesh, mesh.topology.dim, cells)
-    inside = np.zeros(cells.size, dtype=bool)
+    midpoints = _midpoints(field)
+    inside = np.zeros(len(midpoints), dtype=bool)
     for center in centers:
         inside |= np.linalg.norm(midpoints - np.asarray(center), axis=1) < radius
     return inside

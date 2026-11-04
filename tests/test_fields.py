@@ -4,7 +4,27 @@ import pytest
 import ufl
 
 from cem3d.config import DirectionConfig, InclusionConfig
-from cem3d.fields import constant_conductivity, sphere_conductivity, sphere_direction
+from cem3d.fields import (
+    cell_indicator,
+    constant_conductivity,
+    midpoint_direction,
+    sphere_conductivity,
+    sphere_direction,
+)
+
+
+def test_midpoint_direction_evaluates_the_profile_at_the_cell_midpoints(mesh_data):
+    eta = midpoint_direction(mesh_data.mesh, lambda x: x[:, 2])
+    midpoints = dolfinx.mesh.compute_midpoints(
+        mesh_data.mesh, 3, np.arange(eta.x.array.size, dtype=np.int32)
+    )
+    assert np.array_equal(eta.x.array, midpoints[:, 2])
+
+
+def test_cell_indicator_is_one_only_on_the_cell(mesh_data):
+    eta = cell_indicator(mesh_data.mesh, 7)
+    assert eta.x.array[7] == 1.0
+    assert eta.x.array.sum() == 1.0
 
 
 def test_constant_conductivity(mesh_data):
