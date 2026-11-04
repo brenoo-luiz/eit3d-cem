@@ -15,7 +15,18 @@ from cem3d.config import (
     electrode_tag,
 )
 from cem3d.geometry.electrodes import TWO_PI
-from cem3d.geometry.mesh import CylinderWithElectrodes, facet_area, facet_centroid
+from cem3d.geometry.mesh import (
+    CylinderWithElectrodes,
+    cache_path,
+    facet_area,
+    facet_centroid,
+)
+
+
+def test_number_of_currents_does_not_change_the_cached_mesh(tmp_path):
+    assert cache_path(SetupConfig(), tmp_path) == cache_path(
+        SetupConfig(experiments=16), tmp_path
+    )
 
 
 def test_every_electrode_is_tagged(mesh_data):

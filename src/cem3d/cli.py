@@ -40,6 +40,7 @@ def load_setup(path: Path) -> SetupConfig:
     return SetupConfig(
         mesh=MeshConfig(**data.get("mesh", {})),
         electrodes=ElectrodeConfig(**electrodes),
+        experiments=data.get("experiments"),
     )
 
 

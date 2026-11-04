@@ -36,7 +36,11 @@ class MeshData:
 
 
 def cache_path(config: SetupConfig, cache_dir: Path = CACHE_DIR) -> Path:
-    payload = {"v": _SCHEMA, **dataclasses.asdict(config)}
+    payload = {
+        "v": _SCHEMA,
+        "mesh": dataclasses.asdict(config.mesh),
+        "electrodes": dataclasses.asdict(config.electrodes),
+    }
     key = hashlib.sha1(json.dumps(payload, sort_keys=True).encode()).hexdigest()[:10]
     return cache_dir / f"mesh_{key}.xdmf"
 

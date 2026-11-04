@@ -109,12 +109,15 @@ class MeshConfig:
 class SetupConfig:
     mesh: MeshConfig = field(default_factory=MeshConfig)
     electrodes: ElectrodeConfig = field(default_factory=ElectrodeConfig)
+    experiments: int | None = None
 
     def __post_init__(self) -> None:
         e = self.electrodes
         margins = (e.top_margin or 0.0) + (e.bottom_margin or 0.0)
         if margins + len(e.rows) * e.height(self.mesh.radius) >= self.mesh.height:
             raise ValueError("the rows of electrodes must fit in the cylinder")
+        if self.experiments is not None and not 1 <= self.experiments <= e.count:
+            raise ValueError("experiments must be in [1, number of electrodes]")
 
 
 @dataclass(frozen=True)

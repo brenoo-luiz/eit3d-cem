@@ -1,0 +1,25 @@
+# Two aligned rows of 8 electrodes, with all the 16 adjacent currents.
+# Each electrode has height 0.5 and width π/8, so its area is π/16, the same
+# as in the single row of 16 electrodes.
+# θ in degrees, measured in the numbering sense from the line θ = 0.
+
+experiments = 16  # adjacent currents used by the derivative step
+
+[mesh]
+aspect = 2.0  # cylinder height / radius
+
+[electrodes]
+coverage = 0.5  # of the cross section, by the first row
+aspect = 1.2732395447351628  # electrode height / width = 4/π
+top_margin = 0.3  # first row to the top
+bottom_margin = 0.3  # last row to the bottom
+
+[[electrodes.rows]]
+count = 8
+theta = 57.29577951308232
+clockwise = true
+
+[[electrodes.rows]]
+count = 8
+theta = 57.29577951308232
+clockwise = true

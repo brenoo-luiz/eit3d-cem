@@ -130,6 +130,16 @@ def test_electrodes_must_fit_in_cylinder():
         SetupConfig(mesh=MeshConfig(aspect=1.0))
 
 
+def test_default_setup_leaves_the_number_of_currents_to_the_step():
+    assert SetupConfig().experiments is None
+
+
+@pytest.mark.parametrize("experiments", [0, 17])
+def test_invalid_number_of_currents(experiments):
+    with pytest.raises(ValueError):
+        SetupConfig(experiments=experiments)
+
+
 def test_rows_together_must_fit_in_cylinder():
     two = ElectrodeConfig(rows=TWO_ROWS, top_margin=0.1, bottom_margin=0.1)
     with pytest.raises(ValueError):
