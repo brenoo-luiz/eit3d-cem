@@ -57,3 +57,28 @@ reportArgumentType = false
 [[tool.pyright.executionEnvironments]]
 root = "src/cem3d/plots/electrodes.py"
 reportArgumentType = false
+
+[[tool.pyright.executionEnvironments]]
+root = "tests/test_cem.py"
+reportArgumentType = false
+reportAttributeAccessIssue = false
+reportOperatorIssue = false
+reportOptionalSubscript = false
+
+[[tool.pyright.executionEnvironments]]
+root = "tests/test_derivative.py"
+reportArgumentType = false
+reportAttributeAccessIssue = false
+
+[[tool.pyright.executionEnvironments]]
+root = "tests/test_fields.py"
+reportArgumentType = false
+
+[[tool.pyright.executionEnvironments]]
+root = "tests/test_plots.py"
+reportArgumentType = false
+reportAttributeAccessIssue = false
+
+[[tool.pyright.executionEnvironments]]
+root = "tests/test_sampling.py"
+reportAttributeAccessIssue = false

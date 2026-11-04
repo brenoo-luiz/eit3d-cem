@@ -50,7 +50,7 @@ def test_count_adds_every_row():
 
 
 def test_rows_given_as_a_list_are_stored_as_a_tuple():
-    assert isinstance(ElectrodeConfig(rows=[RowConfig()]).rows, tuple)
+    assert isinstance(ElectrodeConfig(rows=[RowConfig()]).rows, tuple)  # pyright: ignore[reportArgumentType]
 
 
 def test_electrode_tags_are_unique_and_offset():
@@ -168,7 +168,7 @@ def test_default_direction_has_two_spheres_with_values_one_and_two():
 
 
 def test_direction_centers_given_as_lists_are_stored_as_tuples():
-    direction = DirectionConfig(centers=[[0, 0, 0]])
+    direction = DirectionConfig(centers=[[0, 0, 0]])  # pyright: ignore[reportArgumentType]
     assert direction.centers == ((0.0, 0.0, 0.0),)
 
 
