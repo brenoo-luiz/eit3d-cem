@@ -74,13 +74,11 @@ class ElectrodeConfig:
         return sum(row.count for row in self.rows)
 
     def margins(self) -> tuple[float, float]:
-        """Top and bottom margins of a setup with several rows."""
         if self.top_margin is None or self.bottom_margin is None:
             raise ValueError("a single row is centered and has no margins")
         return self.top_margin, self.bottom_margin
 
     def width(self, radius: float) -> float:
-        """Arc length of every electrode."""
         return self.coverage * math.tau * radius / self.rows[0].count
 
     def height(self, radius: float) -> float:

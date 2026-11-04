@@ -66,7 +66,7 @@ def run(
     currents = adjacent_by_row([row.count for row in config.electrodes.rows])
     currents = currents[:EXPERIMENTS]
 
-    report.title("DERIVADA DO OPERADOR DIRETO  (equação 2.10 e seção 3.2.2 do livro)")
+    report.title("DERIVADA DO OPERADOR DIRETO")
     report.info("Impedância de contato", f"z = {cem.impedance:g} em todos os eletrodos")
     x, y, z = inclusion.center
     report.info(
