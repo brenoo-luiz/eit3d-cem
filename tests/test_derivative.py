@@ -18,12 +18,18 @@ from cem3d.forward.cem import CEMForward
 from cem3d.forward.currents import adjacent_by_row, adjacent_pattern
 from cem3d.forward.derivative import CEMDerivative
 from cem3d.geometry.mesh import CylinderWithElectrodes, MeshData
+from cem3d.steps.derivative import (
+    _alignment,
+    _alignment_note,
+    _summarize_direction,
+)
 
 EXPERIMENTS = 3
 STEP_IMPEDANCE = 1e-3
 TOL_IDENTITY = 1e-9
 TOL_HOMOGENEITY = 1e-8
 TOL_RANK = 1e-9
+FEW_EXPONENTS = np.array([8, 12, 16])
 
 
 @pytest.fixture(scope="module")
@@ -270,6 +276,38 @@ def test_energy_rank_is_electrodes_minus_rows(theory, matrix):
     assert (
         np.linalg.matrix_rank(values, tol=TOL_RANK * np.abs(values).max()) == expected
     )
+
+
+def test_order_is_one_along_a_direction_not_parallel_to_the_conductivity(theory):
+    eta = midpoint_direction(theory.data.mesh, lambda x: x[:, 2])
+    summary = _summarize_direction(
+        theory.derivative, eta, theory.derivative.directional(eta), FEW_EXPONENTS
+    )
+    assert abs(summary.alignment) < 0.5
+    assert summary.order == pytest.approx(1.0, abs=0.01)
+
+
+def test_spheres_are_nearly_parallel_to_the_conductivity(theory):
+    summary = _summarize_direction(
+        theory.derivative, theory.eta, theory.variation, FEW_EXPONENTS
+    )
+    t = 0.5 ** FEW_EXPONENTS[-1]
+    assert summary.alignment > 0.99
+    assert summary.smallest == pytest.approx(t / (1 + t), rel=0.05)
+
+
+def test_note_explains_a_k_for_the_spheres_nearly_parallel_to_the_conductivity(theory):
+    alignment = _alignment(theory.variation, theory.derivative.voltages)
+    note = _alignment_note(alignment)
+    assert note.startswith(f"cos(W, -U) = {alignment:.4f}")
+    assert "a_k ≈ t/(1 + t)" in note
+
+
+def test_note_shows_only_the_cosine_for_a_direction_not_parallel(theory):
+    eta = midpoint_direction(theory.data.mesh, lambda x: x[:, 2])
+    variation = theory.derivative.directional(eta)
+    alignment = _alignment(variation, theory.derivative.voltages)
+    assert _alignment_note(alignment) == f"cos(W, -U) = {alignment:.4f}"
 
 
 def test_rejects_a_constant_conductivity(mesh_data):

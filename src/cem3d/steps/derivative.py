@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from itertools import pairwise
 from pathlib import Path
 from time import perf_counter
@@ -36,6 +37,9 @@ HALVING = 0.5
 STEPS = HALVING ** np.arange(1, REFINEMENTS + 1)
 ORDER_FIRST = 5
 ORDER_LAST = 15
+EXTRA_EXPONENTS = np.arange(4, 31)
+EXTRA_ORDER_FIRST = 8
+EXTRA_ORDER_LAST = 16
 COLUMNS = 5
 RANDOM_SEED = 0
 SPHERES = "esferas"
@@ -43,6 +47,14 @@ TOL_ZERO = 1e-8
 TOL_ORDER = 0.1
 TOL_SMALLEST = 1e-5
 TOL_COLUMN = 1e-6
+PARALLEL_ALIGNMENT = 0.99
+
+
+@dataclass(frozen=True)
+class DirectionSummary:
+    alignment: float
+    order: float
+    smallest: float
 
 
 def _sphere_list(direction: DirectionConfig) -> str:
@@ -89,10 +101,13 @@ def _directions(
 
 
 def _convergence_errors(
-    derivative: CEMDerivative, eta: dolfinx.fem.Function, variational: np.ndarray
+    derivative: CEMDerivative,
+    eta: dolfinx.fem.Function,
+    variational: np.ndarray,
+    steps: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray]:
     residuals = (
-        np.array([derivative.difference_quotient(eta, t) for t in STEPS]) - variational
+        np.array([derivative.difference_quotient(eta, t) for t in steps]) - variational
     )
     return (
         np.linalg.norm(residuals, axis=(1, 2)) / np.linalg.norm(variational),
@@ -104,9 +119,43 @@ def _ratios(errors: np.ndarray) -> list[str]:
     return ["", *(f"{a / b:.3f}" for a, b in pairwise(errors))]
 
 
+def _log_slope(steps: np.ndarray, errors: np.ndarray) -> np.ndarray:
+    return np.polyfit(np.log(steps), np.log(errors), 1)[0]
+
+
 def _descent_order(errors: np.ndarray) -> np.ndarray:
     window = slice(ORDER_FIRST - 1, ORDER_LAST)
-    return np.polyfit(np.log(STEPS[window]), np.log(errors[window]), 1)[0]
+    return _log_slope(STEPS[window], errors[window])
+
+
+def _alignment(variation: np.ndarray, voltages: np.ndarray) -> float:
+    return float(
+        -np.sum(variation * voltages)
+        / (np.linalg.norm(variation) * np.linalg.norm(voltages))
+    )
+
+
+def _alignment_note(alignment: float) -> str:
+    note = f"cos(W, -U) = {alignment:.4f}"
+    if alignment > PARALLEL_ALIGNMENT:
+        return f"{note}: η quase paralelo a γ, então a_k ≈ t/(1 + t)"
+    return note
+
+
+def _summarize_direction(
+    derivative: CEMDerivative,
+    eta: dolfinx.fem.Function,
+    variation: np.ndarray,
+    exponents: np.ndarray,
+) -> DirectionSummary:
+    steps = HALVING**exponents
+    errors = _convergence_errors(derivative, eta, variation, steps)[0]
+    window = (exponents >= EXTRA_ORDER_FIRST) & (exponents <= EXTRA_ORDER_LAST)
+    return DirectionSummary(
+        alignment=_alignment(variation, derivative.voltages),
+        order=float(_log_slope(steps[window], errors[window])),
+        smallest=float(errors.min()),
+    )
 
 
 def _report_convergence(overall: np.ndarray, per_current: np.ndarray) -> bool:
@@ -220,6 +269,36 @@ def _report_directions(
     return all(checks)
 
 
+def _report_other_directions(
+    derivative: CEMDerivative,
+    directions: dict[str, dolfinx.fem.Function],
+    variations: dict[str, np.ndarray],
+) -> bool:
+    summaries = {
+        name: _summarize_direction(derivative, eta, variations[name], EXTRA_EXPONENTS)
+        for name, eta in directions.items()
+        if name != SPHERES
+    }
+    report.section(
+        f"a_k com as outras direções (k = {EXTRA_EXPONENTS[0]}..{EXTRA_EXPONENTS[-1]})"
+    )
+    report.table(
+        ["η", "cos(W, -U)", "ordem", "menor a_k"],
+        [
+            [name, f"{s.alignment:.4f}", f"{s.order:.3f}", f"{s.smallest:.2e}"]
+            for name, s in summaries.items()
+        ],
+    )
+    report.section(f"Ordem (k = {EXTRA_ORDER_FIRST}..{EXTRA_ORDER_LAST})")
+    checks = [
+        report.check(
+            f"η {name}", s.order, abs(s.order - 1) < TOL_ORDER, ideal="1", fmt=".3f"
+        )
+        for name, s in summaries.items()
+    ]
+    return all(checks)
+
+
 def run(
     config: SetupConfig | None = None,
     cem: CEMConfig | None = None,
@@ -228,6 +307,7 @@ def run(
     force: bool = False,
     cache_dir: Path = CACHE_DIR,
     outputs: Path = OUTPUTS_DIR,
+    all_directions: bool = False,
 ) -> bool:
     config = config or SetupConfig()
     cem = cem or CEMConfig()
@@ -258,8 +338,12 @@ def run(
     report.section("Soma de cada linha de F'(γ)η")
     checks = [report.check("Maior soma", total, total < TOL_ZERO, ideal="~0")]
 
-    overall, per_current = _convergence_errors(derivative, eta, variational)
+    overall, per_current = _convergence_errors(derivative, eta, variational, STEPS)
     checks.append(_report_convergence(overall, per_current))
+    report.info(
+        "η das esferas",
+        _alignment_note(_alignment(variational, derivative.voltages)),
+    )
 
     started = perf_counter()
     jacobian = derivative.jacobian()
@@ -273,6 +357,8 @@ def run(
     report.matrix(variational, row="I", column="e", fmt=".2e")
     checks.append(_report_columns(derivative, jacobian, data.mesh))
     checks.append(_report_directions(jacobian, directions, variations))
+    if all_directions:
+        checks.append(_report_other_directions(derivative, directions, variations))
     ok = all(checks)
 
     by_jacobian = (jacobian @ eta.x.array).reshape(variational.shape)

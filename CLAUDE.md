@@ -56,12 +56,14 @@ python main.py consistency [--force]
 python main.py derivative [--force]
 python main.py electrodes --config configs/three_rows.toml   # outputs/three_rows/
 python main.py derivative --config configs/two_rows_8.toml   # outputs/two_rows_8/
+python main.py derivative --all-directions                   # a_k for every η (slow)
 
 pytest -q
 pytest tests/test_cem.py::test_name
 ```
 
 - `--force` regenerates the mesh instead of loading it from `cache/`. A step exits non-zero if any check fails.
+- `--all-directions` applies only to the derivative step: besides the spheres (k = 1..50), it runs a_k for the other directions with k = 4..30, one forward solve per t_k. It is a run option, not a setup, so it has no TOML key.
 - `--config` reads a TOML setup (`experiments`, `[mesh]`, `[electrodes]`, `[[electrodes.rows]]`, see `configs/`); missing keys keep the defaults. `experiments` is the number of adjacent currents of the derivative step (default 8) and is not part of the mesh cache key.
 - The pre-commit hook runs `pytest -q` and blocks the commit if a test fails.
 - Tests that need FEniCSx use `pytest.importorskip("dolfinx")`. Reuse the session fixtures `mesh_config` and `mesh_data` from `tests/conftest.py` (coarse mesh, `size_max=0.25`, `size_min=0.08`) instead of meshing inside a test.

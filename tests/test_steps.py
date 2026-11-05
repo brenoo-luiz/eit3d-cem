@@ -2,11 +2,13 @@ import dataclasses
 import math
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from cem3d import cli
 from cem3d.cli import STEPS, build_parser, load_setup
 from cem3d.config import ROOT_DIR, RowConfig, SetupConfig
+from cem3d.forward.derivative import CEMDerivative
 from cem3d.geometry.electrodes import ElectrodeLayout
 from cem3d.steps import consistency, derivative, electrodes, forward
 from cem3d.steps.electrodes import _first_start
@@ -31,6 +33,31 @@ def test_every_step_is_registered():
 def test_step_outputs_are_unique():
     outputs = [step.output for step in STEPS.values()]
     assert len(outputs) == len(set(outputs))
+
+
+def test_parser_leaves_the_other_directions_off_by_default():
+    assert not build_parser().parse_args(["derivative"]).all_directions
+
+
+def test_main_passes_the_option_only_when_it_is_on(monkeypatch, tmp_path):
+    seen = []
+
+    def run(**options):
+        seen.append(options.get("all_directions", False))
+        return True
+
+    monkeypatch.setattr(cli, "OUTPUTS_DIR", tmp_path)
+    monkeypatch.setitem(STEPS, "derivative", cli.Step("step4", run))
+    assert cli.main(["derivative"]) == 0
+    assert cli.main(["derivative", "--all-directions"]) == 0
+    assert seen == [False, True]
+
+
+@pytest.mark.parametrize("step", ["electrodes", "forward", "consistency"])
+def test_main_rejects_the_option_in_the_other_steps(step, monkeypatch, tmp_path):
+    monkeypatch.setattr(cli, "OUTPUTS_DIR", tmp_path)
+    with pytest.raises(SystemExit):
+        cli.main([step, "--all-directions"])
 
 
 def test_main_saves_the_report(monkeypatch, tmp_path):
@@ -176,6 +203,33 @@ def test_derivative_step_uses_all_the_currents_of_the_two_rows(tmp_path, capsys)
     out = capsys.readouterr().out
     assert "Jacobiana com 16 correntes" in out
     assert "256 x" in out
+
+
+@pytest.mark.parametrize("all_directions", [False, True])
+def test_other_directions_run_only_with_the_option(
+    all_directions, mesh_config, monkeypatch, tmp_path, capsys
+):
+    pytest.importorskip("dolfinx")
+    steps = []
+
+    def quotient(self, eta, step):
+        steps.append(step)
+        return np.ones_like(self.voltages)
+
+    monkeypatch.setattr(CEMDerivative, "difference_quotient", quotient)
+    derivative.run(
+        mesh_config,
+        cache_dir=tmp_path / "cache",
+        outputs=tmp_path / "out",
+        all_directions=all_directions,
+    )
+    out = capsys.readouterr().out
+    extras = 3 * [0.5**k for k in range(4, 31)]
+    assert len(steps) == 50 + (len(extras) if all_directions else 0)
+    assert ("a_k com as outras direções" in out) == all_directions
+    assert ("cos(W, -U) = " in out) and ("a_k ≈ t/(1 + t)" in out)
+    if all_directions:
+        assert steps[50:] == extras
 
 
 @pytest.fixture(scope="module", params=CONFIGS, ids=lambda p: Path(p).stem)
