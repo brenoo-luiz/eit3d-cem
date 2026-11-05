@@ -1,9 +1,18 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 
 import numpy as np
 from scipy.linalg import block_diag
+
+from cem3d.geometry.electrodes import ElectrodeLayout
+
+
+@dataclass(frozen=True)
+class CurrentProtocol:
+    currents: Callable[[ElectrodeLayout], np.ndarray]
+    scope: str
 
 
 def adjacent_pattern(count: int, experiments: int | None = None) -> np.ndarray:
@@ -19,6 +28,26 @@ def adjacent_pattern(count: int, experiments: int | None = None) -> np.ndarray:
 
 def adjacent_by_row(counts: Sequence[int]) -> np.ndarray:
     return block_diag(*(adjacent_pattern(count) for count in counts))
+
+
+def _adjacent_by_row(layout: ElectrodeLayout) -> np.ndarray:
+    return adjacent_by_row([len(row) for row in layout.rows])
+
+
+def _adjacent_chain(layout: ElectrodeLayout) -> np.ndarray:
+    return adjacent_pattern(len(layout))
+
+
+PROTOCOLS: dict[str, CurrentProtocol] = {
+    "adjacent_by_row": CurrentProtocol(_adjacent_by_row, "cada linha"),
+    "adjacent_chain": CurrentProtocol(_adjacent_chain, "uma cadeia"),
+}
+
+
+def get_protocol(name: str) -> CurrentProtocol:
+    if name not in PROTOCOLS:
+        raise ValueError(f"unknown protocol {name!r}, choose from {sorted(PROTOCOLS)}")
+    return PROTOCOLS[name]
 
 
 def driving_electrodes(currents: np.ndarray) -> list[int]:

@@ -24,8 +24,9 @@ from cem3d.fields import (
     sphere_direction,
 )
 from cem3d.forward.cem import CEMForward
-from cem3d.forward.currents import adjacent_by_row
+from cem3d.forward.currents import get_protocol
 from cem3d.forward.derivative import CEMDerivative
+from cem3d.geometry.electrodes import ElectrodeLayout
 from cem3d.geometry.mesh import CylinderWithElectrodes, cache_path
 from cem3d.plots.consistency import render_matrix
 from cem3d.plots.derivative import render_convergence
@@ -66,6 +67,7 @@ def _report_setup(
     inclusion: InclusionConfig,
     direction: DirectionConfig,
     experiments: int,
+    scope: str,
 ) -> None:
     report.title("DERIVADA DO OPERADOR DIRETO")
     report.info("Impedância de contato", f"z = {cem.impedance:g} em todos os eletrodos")
@@ -85,7 +87,7 @@ def _report_setup(
         f"corrente I(1) = (1, -1, 0, ..., 0) e as {experiments} correntes juntas",
     )
     report.info("Passos", f"t_k = {HALVING:g}^k, k = 1, ..., {REFINEMENTS}")
-    report.info("Correntes", f"{experiments} adjacentes, dentro de cada linha")
+    report.info("Correntes", f"{experiments} adjacentes, dentro de {scope}")
 
 
 def _directions(
@@ -313,10 +315,11 @@ def run(
     cem = cem or CEMConfig()
     inclusion = inclusion or InclusionConfig()
     direction = direction or DirectionConfig()
-    currents = adjacent_by_row([row.count for row in config.electrodes.rows])
-    currents = currents[: config.experiments or EXPERIMENTS]
+    protocol = get_protocol(config.measurement.protocol)
+    currents = protocol.currents(ElectrodeLayout(config))
+    currents = currents[: config.measurement.experiments or EXPERIMENTS]
 
-    _report_setup(cem, inclusion, direction, len(currents))
+    _report_setup(cem, inclusion, direction, len(currents), protocol.scope)
     report.section("Malha")
     if force or not cache_path(config, cache_dir).exists():
         print("  Gerando a malha (só na primeira vez)...")

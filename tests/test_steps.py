@@ -7,7 +7,7 @@ import pytest
 
 from cem3d import cli
 from cem3d.cli import STEPS, build_parser, load_setup
-from cem3d.config import ROOT_DIR, RowConfig, SetupConfig
+from cem3d.config import ROOT_DIR, MeasurementConfig, RowConfig, SetupConfig
 from cem3d.forward.derivative import CEMDerivative
 from cem3d.geometry.electrodes import ElectrodeLayout
 from cem3d.steps import consistency, derivative, electrodes, forward
@@ -88,10 +88,42 @@ def test_empty_setup_file_gives_the_default(tmp_path):
     assert load_setup(path) == SetupConfig()
 
 
-def test_setup_file_sets_the_number_of_currents(tmp_path):
-    path = tmp_path / "currents.toml"
-    path.write_text("experiments = 4\n")
-    assert load_setup(path).experiments == 4
+def test_setup_file_sets_the_measurement(tmp_path):
+    path = tmp_path / "measurement.toml"
+    path.write_text('[measurement]\nprotocol = "adjacent_chain"\nexperiments = 4\n')
+    assert load_setup(path).measurement == MeasurementConfig("adjacent_chain", 4)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "experiments = 16\n",
+        "[measuremnt]\nexperiments = 4\n",
+        '[measurement]\nprotocol = "nothing"\n',
+        "[measurement]\nprotocol = 3\n",
+        "[measurement]\nexperiments = 0\n",
+        "[measurement]\nexperiments = 17\n",
+        '[measurement]\nexperiments = "16"\n',
+        "[measurement]\nexperiments = 16.0\n",
+        "[measurement]\ncurrents = 16\n",
+    ],
+    ids=[
+        "old top-level key",
+        "misspelled section",
+        "unknown protocol",
+        "protocol not a name",
+        "zero currents",
+        "more currents than electrodes",
+        "currents as text",
+        "currents as float",
+        "unknown key",
+    ],
+)
+def test_invalid_measurement_in_the_setup_file_is_refused(text, tmp_path):
+    path = tmp_path / "invalid.toml"
+    path.write_text(text)
+    with pytest.raises((ValueError, TypeError)):
+        load_setup(path)
 
 
 def test_two_rows_of_eight_setup_has_equal_rows_and_all_the_currents():
@@ -99,7 +131,7 @@ def test_two_rows_of_eight_setup_has_equal_rows_and_all_the_currents():
     first, second = config.electrodes.rows
     assert first == second
     assert first.count == 8
-    assert config.experiments == 16
+    assert config.measurement == MeasurementConfig("adjacent_by_row", 16)
     layout = ElectrodeLayout(config)
     assert layout.row_gap == pytest.approx(0.4)
     assert layout[1].area(1.0) == pytest.approx(math.pi / 16)
@@ -237,6 +269,21 @@ def rows_case(request, tmp_path_factory):
     config = load_setup(request.param)
     coarse = dataclasses.replace(config.mesh, size_max=0.25, size_min=0.08)
     return dataclasses.replace(config, mesh=coarse), tmp_path_factory.mktemp("cache")
+
+
+@pytest.mark.parametrize("step", [forward, consistency, derivative])
+def test_steps_are_ready_for_the_chain_of_currents(step, tmp_path, capsys):
+    pytest.importorskip("dolfinx")
+    config = load_setup(ROOT_DIR / "configs" / "two_rows_8.toml")
+    chain = dataclasses.replace(
+        config,
+        mesh=dataclasses.replace(config.mesh, size_max=0.25, size_min=0.08),
+        measurement=MeasurementConfig("adjacent_chain", 16),
+    )
+    assert step.run(chain, cache_dir=tmp_path / "cache", outputs=tmp_path / "out")
+    out = capsys.readouterr().out
+    assert "incorreto" not in out
+    assert "uma cadeia" in out
 
 
 @pytest.mark.parametrize("step", [electrodes, forward, consistency, derivative])

@@ -8,6 +8,7 @@ from cem3d.config import (
     DirectionConfig,
     ElectrodeConfig,
     InclusionConfig,
+    MeasurementConfig,
     MeshConfig,
     RowConfig,
     SetupConfig,
@@ -130,14 +131,32 @@ def test_electrodes_must_fit_in_cylinder():
         SetupConfig(mesh=MeshConfig(aspect=1.0))
 
 
-def test_default_setup_leaves_the_number_of_currents_to_the_step():
-    assert SetupConfig().experiments is None
+def test_default_measurement_is_adjacent_by_row_with_the_count_left_to_the_step():
+    measurement = SetupConfig().measurement
+    assert measurement.protocol == "adjacent_by_row"
+    assert measurement.experiments is None
 
 
-@pytest.mark.parametrize("experiments", [0, 17])
-def test_invalid_number_of_currents(experiments):
+@pytest.mark.parametrize("experiments", [0, -1])
+def test_number_of_currents_must_be_positive(experiments):
     with pytest.raises(ValueError):
-        SetupConfig(experiments=experiments)
+        MeasurementConfig(experiments=experiments)
+
+
+@pytest.mark.parametrize("experiments", [2.0, "16", True])
+def test_number_of_currents_must_be_an_integer(experiments):
+    with pytest.raises(TypeError):
+        MeasurementConfig(experiments=experiments)
+
+
+def test_protocol_must_be_a_name():
+    with pytest.raises(TypeError):
+        MeasurementConfig(protocol=["adjacent_by_row"])
+
+
+def test_number_of_currents_must_fit_the_electrodes():
+    with pytest.raises(ValueError):
+        SetupConfig(measurement=MeasurementConfig(experiments=17))
 
 
 def test_rows_together_must_fit_in_cylinder():

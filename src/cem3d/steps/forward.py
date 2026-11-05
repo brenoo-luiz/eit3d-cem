@@ -19,7 +19,7 @@ from cem3d.forward.checks import (
     extremes_off_electrodes,
     injected_currents,
 )
-from cem3d.forward.currents import adjacent_by_row
+from cem3d.forward.currents import get_protocol
 from cem3d.geometry.mesh import CylinderWithElectrodes, cache_path
 from cem3d.plots.forward import render_potential
 from cem3d.utils import report
@@ -40,12 +40,13 @@ def run(
     cem = cem or CEMConfig()
     inclusion = inclusion or InclusionConfig()
     count = config.electrodes.count
+    protocol = get_protocol(config.measurement.protocol)
 
     report.title("PROBLEMA DIRETO  (modelo completo de eletrodos)")
     report.info("Impedância de contato", f"z = {cem.impedance:g} em todos os eletrodos")
     report.info(
         "Correntes",
-        f"adjacentes em cada linha, {count} experimentos, I = (1, -1, 0, ..., 0)",
+        f"adjacentes em {protocol.scope}, {count} experimentos, I = (1, -1, 0, ..., 0)",
     )
     report.info("Medidas", f"U em todos os {count} eletrodos, {count * count} valores")
     x, y, z = inclusion.center
@@ -61,7 +62,7 @@ def run(
     data = CylinderWithElectrodes(config, cache_dir=cache_dir, force=force).get()
     report.mesh(data)
 
-    currents = adjacent_by_row([row.count for row in config.electrodes.rows])
+    currents = protocol.currents(data.layout)
     homogeneous = CEMForward(data, constant_conductivity(data.mesh, 1.0), cem)
     with_inclusion = CEMForward(data, sphere_conductivity(data.mesh, inclusion), cem)
     sol_h = homogeneous.solve(currents)

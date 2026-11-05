@@ -9,6 +9,7 @@ from cem3d.config import (
     GAP_TAG,
     TOP_TAG,
     ElectrodeConfig,
+    MeasurementConfig,
     MeshConfig,
     RowConfig,
     SetupConfig,
@@ -23,9 +24,10 @@ from cem3d.geometry.mesh import (
 )
 
 
-def test_number_of_currents_does_not_change_the_cached_mesh(tmp_path):
+def test_measurement_does_not_change_the_cached_mesh(tmp_path):
+    measurement = MeasurementConfig(protocol="adjacent_chain", experiments=16)
     assert cache_path(SetupConfig(), tmp_path) == cache_path(
-        SetupConfig(experiments=16), tmp_path
+        SetupConfig(measurement=measurement), tmp_path
     )
 
 

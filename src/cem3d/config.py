@@ -16,6 +16,7 @@ ELECTRODE_TAG0 = 100
 
 DEFAULT_ELECTRODE_ASPECT = 16 / math.pi
 DEFAULT_THETA = math.degrees(1.0)
+DEFAULT_PROTOCOL = "adjacent_by_row"
 
 
 def electrode_tag(index: int) -> int:
@@ -106,18 +107,35 @@ class MeshConfig:
 
 
 @dataclass(frozen=True)
+class MeasurementConfig:
+    protocol: str = DEFAULT_PROTOCOL
+    experiments: int | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.protocol, str):
+            raise TypeError("protocol must be a name")
+        if self.experiments is None:
+            return
+        if type(self.experiments) is not int:
+            raise TypeError("experiments must be an integer")
+        if self.experiments < 1:
+            raise ValueError("experiments must be positive")
+
+
+@dataclass(frozen=True)
 class SetupConfig:
     mesh: MeshConfig = field(default_factory=MeshConfig)
     electrodes: ElectrodeConfig = field(default_factory=ElectrodeConfig)
-    experiments: int | None = None
+    measurement: MeasurementConfig = field(default_factory=MeasurementConfig)
 
     def __post_init__(self) -> None:
         e = self.electrodes
         margins = (e.top_margin or 0.0) + (e.bottom_margin or 0.0)
         if margins + len(e.rows) * e.height(self.mesh.radius) >= self.mesh.height:
             raise ValueError("the rows of electrodes must fit in the cylinder")
-        if self.experiments is not None and not 1 <= self.experiments <= e.count:
-            raise ValueError("experiments must be in [1, number of electrodes]")
+        experiments = self.measurement.experiments
+        if experiments is not None and experiments > e.count:
+            raise ValueError("experiments must not exceed the number of electrodes")
 
 
 @dataclass(frozen=True)

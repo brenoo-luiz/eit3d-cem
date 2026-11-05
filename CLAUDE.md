@@ -22,7 +22,7 @@ Electrode parameters asked by the supervisor (email of Oct 2026), with the choic
 - θ in degrees from the generatrix θ = 0 (x axis) to the leading edge of the first electrode, measured in the row sense; the electrode extends in that sense, so a clockwise row mirrors an anticlockwise one. This differs from the 2D code (FEIT_CBM34), where e1 always spans [rotate, rotate + w].
 - Every electrode has the same size (follow-up email, Oct 2026): the first row sets it, with L₁ electrodes covering `ElectrodeConfig.coverage` of the cross section. The other rows keep that size and space their electrodes evenly, so their coverage is L_k · coverage / L₁.
 - Vertical placement: with several rows, `top_margin` (first row to the top) and `bottom_margin` (last row to the bottom) are chosen and the gaps between rows are equal; a single row is centered and takes no margins.
-- Electrodes are numbered row after row; currents are adjacent within each row (provisional until the measurement protocols).
+- Electrodes are numbered row after row; currents are adjacent within each row by default (`adjacent_by_row`). The chain (`adjacent_chain`) is ready but not run on the fine mesh until the supervisor says which reading he wants.
 - The relative error of U − U* in step 3 is acceptable for now; refine at the electrode edges only if it grows.
 
 Derivative of the forward operator (supervisor's handwritten sheet, Nov 2026), with the choices made where the sheet was open:
@@ -36,7 +36,7 @@ Derivative of the forward operator (supervisor's handwritten sheet, Nov 2026), w
 Final tests with two rows (supervisor's email, Nov 2026), with the choices made where the email was open:
 
 - Two rows of 8 electrodes, `configs/two_rows_8.toml`: aligned, both with θ = 1 rad and clockwise, coverage 50%, electrode height 0.5 and width π/8 (area π/16, the same as in the single row), margins 0.3, gap 0.4.
-- 16 adjacent currents: the 8 cyclic patterns of each row (`experiments = 16`). None of them drives current between the rows, and their rank is 14, not L − 1 = 15.
+- 16 adjacent currents: the 8 cyclic patterns of each row (`[measurement]`, `experiments = 16`). None of them drives current between the rows, and their rank is 14, not L − 1 = 15. The other reading, not confirmed by him yet, is the cyclic chain e1, …, e16, e1 (`adjacent_chain`, rank 15), in which e8–e9 and e16–e1 cross the rows; these pairs are adjacent in the numbering, not on the cylinder.
 - The tests of his items 3, 4 and 5 run in `python main.py derivative --config configs/two_rows_8.toml`: a_k for I(1) and for all the l currents together; 5 columns of J against (2.10), evenly spaced cell indices; J η̄ against F'(γ)η for η = two spheres, constant 1, z and random per cell (seed 0).
 - J is timed alone (`derivative.jacobian()`, no tests); the time before it (w_j, S and U) is reported apart.
 
@@ -64,7 +64,7 @@ pytest tests/test_cem.py::test_name
 
 - `--force` regenerates the mesh instead of loading it from `cache/`. A step exits non-zero if any check fails.
 - `--all-directions` applies only to the derivative step: besides the spheres (k = 1..50), it runs a_k for the other directions with k = 4..30, one forward solve per t_k. It is a run option, not a setup, so it has no TOML key.
-- `--config` reads a TOML setup (`experiments`, `[mesh]`, `[electrodes]`, `[[electrodes.rows]]`, see `configs/`); missing keys keep the defaults. `experiments` is the number of adjacent currents of the derivative step (default 8) and is not part of the mesh cache key.
+- `--config` reads a TOML setup (`[mesh]`, `[electrodes]`, `[[electrodes.rows]]`, `[measurement]`, see `configs/`); missing keys keep the defaults and unknown top-level keys are refused. `[measurement]` has `protocol` (a name in `PROTOCOLS`) and `experiments`, the number of currents of the derivative step (default 8; steps 2 and 3 use every pattern). It is not part of the mesh cache key.
 - The pre-commit hook runs `pytest -q` and blocks the commit if a test fails.
 - Tests that need FEniCSx use `pytest.importorskip("dolfinx")`. Reuse the session fixtures `mesh_config` and `mesh_data` from `tests/conftest.py` (coarse mesh, `size_max=0.25`, `size_min=0.08`) instead of meshing inside a test.
 
@@ -73,10 +73,11 @@ pytest tests/test_cem.py::test_name
 Pipeline: `config` → `geometry` (layout + mesh) → `fields` (γ and η) → `forward` (CEM solve, derivative and checks) → `plots`, run by `steps`.
 
 - `cli.py`: `STEPS` maps a name to `Step(output, run)`; `main` saves everything printed to `outputs/<output>.txt` (or `outputs/<config name>/` with `--config`); `load_setup` reads the TOML setup. A new step is `steps/<name>.py` with `run(config=None, ..., force=False, cache_dir=CACHE_DIR, outputs=OUTPUTS_DIR) -> bool` plus an entry in `STEPS` (`stepN`).
-- `config.py`: frozen dataclasses validated in `__post_init__`, and the gmsh tags: top 1, bottom 2, gap 3, volume 10, electrode j = `electrode_tag(j) = 100 + j`.
+- `config.py`: frozen dataclasses validated in `__post_init__` (`SetupConfig` joins `MeshConfig`, `ElectrodeConfig` and `MeasurementConfig`), and the gmsh tags: top 1, bottom 2, gap 3, volume 10, electrode j = `electrode_tag(j) = 100 + j`.
 - `geometry/electrodes.py`: `ElectrodeLayout` is the only source of electrode positions: it stacks `ElectrodeRow`s of equal electrodes between the top and bottom margins with equal gaps between rows, indexes electrodes 1-based across rows, and gives `locate(theta, z)` and the `seam` angle.
 - `geometry/mesh.py`: OCC cylinder fragmented by wedges, seam rotated to the gap center farthest from every row (staggered rows may share no gap, then the seam cuts an electrode), surfaces tagged by center of mass, refinement only on the true border of each electrode. Meshes are cached by a hash of the config; bump `_SCHEMA` whenever mesh generation changes.
 - `forward/cem.py`: `CEMForward` keeps the CG + BoomerAMG solver of A, solves A w_j = c_j once per electrode and builds the Schur complement; `solve(currents)` is a dense solve with ΣU = 0 through a Lagrange multiplier; `potential(U) = Σ U_j w_j`; `solve_source(b)` solves the CEM system with an interior load b (one more CG solve, then the Schur system); `solve_schur(g)` solves S W = g with ΣW = 0 for each row of g; `with_conductivity(γ)` builds a new forward on the same mesh.
+- `forward/currents.py`: current patterns. `PROTOCOLS` maps a name to a `CurrentProtocol` (Strategy): `currents(layout)` gives the matrix and `scope` names it in the reports; `get_protocol(name)` refuses unknown names. A new protocol is a function of the layout plus an entry in `PROTOCOLS`.
 - `forward/derivative.py`: `CEMDerivative(forward, currents)` for a DG0 γ: `directional(η)` solves (2.10) for each current, `difference_quotient(η, t)` gives (F(γ + tη) − F(γ))/t, `jacobian()` solves (2.10) with η = χ_{T_k} for every element through `solve_schur`.
 - `forward/checks.py`: checks of step 2 (currents, ΣU, reciprocity, antisymmetry and circulant structure for γ ≡ 1, which apply only to a single row, extremes on the driving electrodes).
 - `forward/consistency.py`: `ConsistencyTests`, the four tests of book section 3.2.1, with the flux from the gradient (as in the book) and the consistent flux from the weak form.

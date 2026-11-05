@@ -14,7 +14,7 @@ from cem3d.config import (
 from cem3d.fields import sphere_conductivity
 from cem3d.forward.cem import CEMForward
 from cem3d.forward.consistency import ConsistencyTests
-from cem3d.forward.currents import adjacent_by_row, driving_electrodes
+from cem3d.forward.currents import driving_electrodes, get_protocol
 from cem3d.geometry.mesh import CylinderWithElectrodes, cache_path
 from cem3d.plots.consistency import render_boundary, render_contact, render_matrix
 from cem3d.utils import report
@@ -34,10 +34,11 @@ def run(
     cem = cem or CEMConfig()
     inclusion = inclusion or InclusionConfig()
     count = config.electrodes.count
+    protocol = get_protocol(config.measurement.protocol)
 
     report.title("TESTES DE CONSISTÊNCIA  (seção 3.2.1 do livro)")
     report.info("Impedância de contato", f"z = {cem.impedance:g} em todos os eletrodos")
-    report.info("Correntes", f"adjacentes em cada linha, {count} experimentos")
+    report.info("Correntes", f"adjacentes em {protocol.scope}, {count} experimentos")
     x, y, z = inclusion.center
     report.info(
         "Condutividade",
@@ -54,7 +55,7 @@ def run(
 
     gamma = sphere_conductivity(data.mesh, inclusion)
     forward = CEMForward(data, gamma, cem)
-    currents = adjacent_by_row([row.count for row in config.electrodes.rows])
+    currents = protocol.currents(data.layout)
     solution = forward.solve(currents)
     tests = ConsistencyTests(forward, data, gamma)
 

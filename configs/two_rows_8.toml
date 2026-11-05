@@ -3,6 +3,8 @@
 # as in the single row of 16 electrodes.
 # θ in degrees, measured in the numbering sense from the line θ = 0.
 
+[measurement]
+protocol = "adjacent_by_row"  # the 8 cyclic patterns of each row
 experiments = 16  # adjacent currents used by the derivative step
 
 [mesh]
