@@ -1,4 +1,5 @@
 import dataclasses
+from typing import NamedTuple
 
 import dolfinx
 import numpy as np
@@ -6,7 +7,7 @@ import pytest
 import ufl
 
 from cem3d.cli import load_setup
-from cem3d.config import ROOT_DIR, DirectionConfig, InclusionConfig
+from cem3d.config import ROOT_DIR, CEMConfig, DirectionConfig, InclusionConfig
 from cem3d.fields import (
     cell_indicator,
     midpoint_direction,
@@ -16,9 +17,13 @@ from cem3d.fields import (
 from cem3d.forward.cem import CEMForward
 from cem3d.forward.currents import adjacent_by_row, adjacent_pattern
 from cem3d.forward.derivative import CEMDerivative
-from cem3d.geometry.mesh import CylinderWithElectrodes
+from cem3d.geometry.mesh import CylinderWithElectrodes, MeshData
 
 EXPERIMENTS = 3
+STEP_IMPEDANCE = 1e-3
+TOL_IDENTITY = 1e-9
+TOL_HOMOGENEITY = 1e-8
+TOL_RANK = 1e-9
 
 
 @pytest.fixture(scope="module")
@@ -103,15 +108,24 @@ def test_difference_quotient_converges_at_first_order(derivative, eta, variation
 
 
 @pytest.fixture(scope="module")
-def two_rows(tmp_path_factory):
+def two_rows_data(tmp_path_factory):
     config = load_setup(ROOT_DIR / "configs" / "two_rows_8.toml")
     coarse = dataclasses.replace(config.mesh, size_max=0.25, size_min=0.08)
-    data = CylinderWithElectrodes(
+    return CylinderWithElectrodes(
         dataclasses.replace(config, mesh=coarse),
         cache_dir=tmp_path_factory.mktemp("cache"),
     ).get()
-    gamma = sphere_conductivity(data.mesh, InclusionConfig())
-    return data, CEMDerivative(CEMForward(data, gamma), adjacent_by_row([8, 8]))
+
+
+@pytest.fixture(scope="module")
+def two_rows_forward(two_rows_data):
+    gamma = sphere_conductivity(two_rows_data.mesh, InclusionConfig())
+    return CEMForward(two_rows_data, gamma)
+
+
+@pytest.fixture(scope="module")
+def two_rows(two_rows_data, two_rows_forward):
+    return two_rows_data, CEMDerivative(two_rows_forward, adjacent_by_row([8, 8]))
 
 
 @pytest.fixture(scope="module")
@@ -169,6 +183,93 @@ def test_two_rows_difference_quotient_converges_at_first_order(two_rows):
         for t in (2.0**-6, 2.0**-7)
     ]
     assert errors[0] / errors[1] == pytest.approx(2.0, rel=0.05)
+
+
+class TheoryCase(NamedTuple):
+    data: MeshData
+    forward: CEMForward
+    derivative: CEMDerivative
+    currents: np.ndarray
+    eta: dolfinx.fem.Function
+    variation: np.ndarray
+
+
+@pytest.fixture(scope="module", params=["default", "two_rows_8"])
+def theory(request, mesh_data, forward, two_rows_data, two_rows_forward, two_rows):
+    if request.param == "default":
+        data, solver, currents = mesh_data, forward, adjacent_by_row([16])
+        shared = CEMDerivative(solver, currents)
+    else:
+        data, solver, currents = (
+            two_rows_data,
+            two_rows_forward,
+            adjacent_by_row([8, 8]),
+        )
+        shared = two_rows[1]
+    eta = sphere_direction(data.mesh, DirectionConfig())
+    return TheoryCase(data, solver, shared, currents, eta, shared.directional(eta))
+
+
+def _relative_error(actual: np.ndarray, expected: np.ndarray) -> float:
+    return float(np.linalg.norm(actual - expected) / np.linalg.norm(expected))
+
+
+def _power_matrix(case: TheoryCase) -> np.ndarray:
+    return case.variation @ case.currents.T
+
+
+def _energy_matrix(case: TheoryCase) -> np.ndarray:
+    space = case.forward.function_space
+    left, right = dolfinx.fem.Function(space), dolfinx.fem.Function(space)
+    energy = dolfinx.fem.form(
+        case.eta * ufl.inner(ufl.grad(left), ufl.grad(right)) * ufl.dx
+    )
+    potentials = [case.forward.potential(U).x.array for U in case.derivative.voltages]
+    matrix = np.empty((len(potentials), len(potentials)))
+    for j, u_j in enumerate(potentials):
+        left.x.array[:] = u_j
+        for k, u_k in enumerate(potentials):
+            right.x.array[:] = u_k
+            matrix[j, k] = dolfinx.fem.assemble_scalar(energy)
+    return matrix
+
+
+def test_derivative_is_reciprocal_for_every_pair_of_currents(theory):
+    power = _power_matrix(theory)
+    assert _relative_error(power, power.T) < TOL_IDENTITY
+
+
+def test_power_is_minus_the_energy_for_every_pair_of_currents(theory):
+    assert _relative_error(_power_matrix(theory), -_energy_matrix(theory)) < (
+        TOL_IDENTITY
+    )
+
+
+def test_derivative_along_the_conductivity_is_homogeneous(theory):
+    gamma = theory.forward.conductivity
+    impedance = CEMConfig().impedance
+
+    def voltages(scale: float) -> np.ndarray:
+        config = CEMConfig(impedance=scale * impedance)
+        solver = CEMForward(theory.data, gamma, config)
+        return solver.solve(theory.currents).voltages
+
+    impedance_term = (voltages(1 + STEP_IMPEDANCE) - voltages(1 - STEP_IMPEDANCE)) / (
+        2 * STEP_IMPEDANCE
+    )
+    expected = -theory.derivative.voltages + impedance_term
+    assert _relative_error(theory.derivative.directional(gamma), expected) < (
+        TOL_HOMOGENEITY
+    )
+
+
+@pytest.mark.parametrize("matrix", [_energy_matrix, _power_matrix])
+def test_energy_rank_is_electrodes_minus_rows(theory, matrix):
+    values = matrix(theory)
+    expected = len(theory.data.layout) - len(theory.data.layout.rows)
+    assert (
+        np.linalg.matrix_rank(values, tol=TOL_RANK * np.abs(values).max()) == expected
+    )
 
 
 def test_rejects_a_constant_conductivity(mesh_data):
