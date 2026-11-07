@@ -136,6 +136,28 @@ def test_schur_has_constant_null_space(forward):
     assert np.allclose(forward.schur @ np.ones(16), 0, atol=1e-8)
 
 
+def test_equal_voltages_give_the_constant_potential(forward):
+    assert np.allclose(forward.potential(np.ones(16)).x.array, 1.0, atol=1e-8)
+
+
+def smallest_eigenvalue(data, gamma, electrode_term):
+    V = dolfinx.fem.functionspace(data.mesh, ("Lagrange", 1))
+    u, v = ufl.TrialFunction(V), ufl.TestFunction(V)
+    ds = boundary_measure(data)
+    a = ufl.inner(gamma * ufl.grad(u), ufl.grad(v)) * ufl.dx
+    if electrode_term:
+        a += sum(1e3 * u * v * ds(electrode_tag(e.index)) for e in data.layout)
+    matrix = dolfinx.fem.petsc.assemble_matrix(dolfinx.fem.form(a))
+    matrix.assemble()
+    matrix = sp.csr_matrix(matrix.getValuesCSR()[::-1], shape=matrix.getSize())
+    return spla.eigsh(matrix, k=1, sigma=-1e-3, return_eigenvectors=False)[0]
+
+
+def test_electrode_term_makes_the_interior_matrix_positive_definite(mesh_data, gamma):
+    assert abs(smallest_eigenvalue(mesh_data, gamma, False)) < 1e-10
+    assert smallest_eigenvalue(mesh_data, gamma, True) > 1e-3
+
+
 def test_homogeneous_antisymmetry(mesh_data):
     sol = CEMForward(mesh_data, constant_conductivity(mesh_data.mesh, 1.0)).solve(
         adjacent_pattern(16, 1)
